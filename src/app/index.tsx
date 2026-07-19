@@ -81,12 +81,28 @@ export default function Index() {
         </View>
       </Section>
 
-      <Link
-        href="/supabase-test"
-        className="font-sans-medium text-secondary-dark underline"
-      >
-        Supabase connection test
-      </Link>
+      <Section title="Preview">
+        <View className="gap-2">
+          <Link
+            href="/login"
+            className="font-sans-medium text-secondary-dark underline"
+          >
+            Login screen
+          </Link>
+          <Link
+            href="/signup"
+            className="font-sans-medium text-secondary-dark underline"
+          >
+            Signup screen
+          </Link>
+          <Link
+            href="/supabase-test"
+            className="font-sans-medium text-secondary-dark underline"
+          >
+            Supabase connection test
+          </Link>
+        </View>
+      </Section>
     </ScrollView>
   );
 }
