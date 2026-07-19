@@ -14,6 +14,63 @@ export type Database = {
   };
   public: {
     Tables: {
+      player_wobblins: {
+        Row: {
+          attack: number;
+          created_at: string;
+          defense: number;
+          experience: number;
+          hp: number;
+          id: string;
+          level: number;
+          nickname: string | null;
+          player_id: string;
+          species_id: string;
+          speed: number;
+        };
+        Insert: {
+          attack: number;
+          created_at?: string;
+          defense: number;
+          experience?: number;
+          hp: number;
+          id?: string;
+          level?: number;
+          nickname?: string | null;
+          player_id: string;
+          species_id: string;
+          speed: number;
+        };
+        Update: {
+          attack?: number;
+          created_at?: string;
+          defense?: number;
+          experience?: number;
+          hp?: number;
+          id?: string;
+          level?: number;
+          nickname?: string | null;
+          player_id?: string;
+          species_id?: string;
+          speed?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "player_wobblins_player_id_fkey";
+            columns: ["player_id"];
+            isOneToOne: false;
+            referencedRelation: "players";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "player_wobblins_species_id_fkey";
+            columns: ["species_id"];
+            isOneToOne: false;
+            referencedRelation: "wobblin_species";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       players: {
         Row: {
           created_at: string;
@@ -44,6 +101,42 @@ export type Database = {
           level?: number;
           onboarding_completed?: boolean;
           username?: string;
+        };
+        Relationships: [];
+      };
+      wobblin_species: {
+        Row: {
+          base_attack: number;
+          base_defense: number;
+          base_hp: number;
+          base_speed: number;
+          description: string;
+          element: string;
+          id: string;
+          name: string;
+          rarity: string;
+        };
+        Insert: {
+          base_attack: number;
+          base_defense: number;
+          base_hp: number;
+          base_speed: number;
+          description: string;
+          element: string;
+          id?: string;
+          name: string;
+          rarity: string;
+        };
+        Update: {
+          base_attack?: number;
+          base_defense?: number;
+          base_hp?: number;
+          base_speed?: number;
+          description?: string;
+          element?: string;
+          id?: string;
+          name?: string;
+          rarity?: string;
         };
         Relationships: [];
       };
