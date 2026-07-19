@@ -3,9 +3,11 @@ import type { Tables } from "./database.types";
 
 export type WobblinSpecies = Tables<"wobblin_species">;
 
-export type FeaturedWobblin = Tables<"player_wobblins"> & {
+export type PlayerWobblin = Tables<"player_wobblins"> & {
   species: WobblinSpecies;
 };
+
+export type FeaturedWobblin = PlayerWobblin;
 
 /**
  * The player's featured Wobblin for the home dashboard. There's no
@@ -23,6 +25,30 @@ export async function getFeaturedWobblin(playerId: string) {
 
   if (error) throw error;
   return data as FeaturedWobblin | null;
+}
+
+/** All Wobblins the player owns, newest first, for the Collection screen. */
+export async function getPlayerWobblins(playerId: string) {
+  const { data, error } = await supabase
+    .from("player_wobblins")
+    .select("*, species:wobblin_species(*)")
+    .eq("player_id", playerId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data as PlayerWobblin[];
+}
+
+/** A single owned Wobblin by id, for the Monster Detail screen. */
+export async function getPlayerWobblinById(id: string) {
+  const { data, error } = await supabase
+    .from("player_wobblins")
+    .select("*, species:wobblin_species(*)")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data as PlayerWobblin | null;
 }
 
 export async function getStarterSpecies() {
