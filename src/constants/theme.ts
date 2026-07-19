@@ -82,6 +82,15 @@ export const ELEMENT_CLASSNAMES: Record<
   },
 };
 
+/** Placeholder emoji art for each element, used where a monster image would go. */
+export const ELEMENT_EMOJI: Record<Element, string> = {
+  fire: "🔥",
+  ice: "❄️",
+  water: "🌊",
+  nature: "🌿",
+  shadow: "🌑",
+};
+
 export const RARITY_COLORS: Record<Rarity, string> = {
   common: "#6b7280",
   uncommon: "#16a34a",
