@@ -22,6 +22,7 @@ export type Database = {
           gold: number;
           id: string;
           level: number;
+          onboarding_completed: boolean;
           username: string;
         };
         Insert: {
@@ -31,6 +32,7 @@ export type Database = {
           gold?: number;
           id: string;
           level?: number;
+          onboarding_completed?: boolean;
           username: string;
         };
         Update: {
@@ -40,6 +42,7 @@ export type Database = {
           gold?: number;
           id?: string;
           level?: number;
+          onboarding_completed?: boolean;
           username?: string;
         };
         Relationships: [];

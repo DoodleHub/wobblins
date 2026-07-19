@@ -1,17 +1,35 @@
-import { Link } from "expo-router";
+import { Link, useRouter } from "expo-router";
+import { useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 
+import { Button } from "@/components/Button";
 import {
   ELEMENT_CLASSNAMES,
   type Element,
   RARITY_CLASSNAMES,
   type Rarity,
 } from "@/constants/theme";
+import { signOut } from "@/supabase/auth";
+import { useSupabase } from "@/supabase/SupabaseProvider";
 
 const ELEMENTS: Element[] = ["fire", "ice", "water", "nature", "shadow"];
 const RARITIES: Rarity[] = ["common", "uncommon", "rare", "epic", "legendary"];
 
 export default function Index() {
+  const router = useRouter();
+  const { session } = useSupabase();
+  const [signingOut, setSigningOut] = useState(false);
+
+  const onSignOut = async () => {
+    setSigningOut(true);
+    try {
+      await signOut();
+      router.replace("/login");
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
   return (
     <ScrollView
       className="flex-1 bg-background"
@@ -25,6 +43,22 @@ export default function Index() {
           Design system preview — colors &amp; fonts
         </Text>
       </View>
+
+      {session && (
+        <Section title="Session (testing)">
+          <View className="gap-2">
+            <Text className="font-sans text-sm text-text-muted">
+              {session.user.email}
+            </Text>
+            <Button
+              label="Sign Out"
+              variant="secondary"
+              onPress={onSignOut}
+              loading={signingOut}
+            />
+          </View>
+        </Section>
+      )}
 
       <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
         <Text className="font-display text-lg text-primary-dark">
