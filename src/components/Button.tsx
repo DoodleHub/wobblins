@@ -22,6 +22,8 @@ export function Button({
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
       className={`items-center rounded-xl px-4 py-3.5 ${
         isPrimary ? "bg-primary" : "border border-border bg-surface"
       } ${isDisabled ? "opacity-60" : ""}`}
