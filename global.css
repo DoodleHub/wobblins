@@ -3,3 +3,61 @@
 @import "tailwindcss/utilities.css";
 
 @import "nativewind/theme";
+
+/**
+ * Monster Realms design system — colors & fonts.
+ * Modern mobile RPG: clean light surfaces, an electric indigo/lime
+ * brand pairing, premium feel with minimal graphical assets.
+ */
+@theme {
+  /* Fonts — loaded via expo-font in src/app/_layout.tsx */
+  --font-display: "SpaceGrotesk_600SemiBold";
+  --font-display-bold: "SpaceGrotesk_700Bold";
+  --font-sans: "Manrope_400Regular";
+  --font-sans-medium: "Manrope_500Medium";
+  --font-sans-semibold: "Manrope_600SemiBold";
+  --font-sans-bold: "Manrope_700Bold";
+
+  /* Surfaces */
+  --color-background: #f4f5fa;
+  --color-surface: #ffffff;
+  --color-surface-raised: #ffffff;
+  --color-border: #e1e3ef;
+
+  /* Text */
+  --color-text: #12131c;
+  --color-text-muted: #585b72;
+  --color-text-subtle: #8a8da3;
+
+  /* Brand */
+  --color-primary: #4f46e5;
+  --color-primary-dark: #4338ca;
+  --color-primary-light: #e0e7ff;
+  --color-secondary: #84cc16;
+  --color-secondary-dark: #4d7c0f;
+
+  /* Feedback */
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+
+  /* Player resources */
+  --color-gold: #b45309;
+  --color-energy: #0284c7;
+  --color-hp: #dc2626;
+  --color-xp: #7c3aed;
+
+  /* Monster elements */
+  --color-element-fire: #ea580c;
+  --color-element-ice: #0891b2;
+  --color-element-water: #1d4ed8;
+  --color-element-nature: #15803d;
+  --color-element-shadow: #6b21a8;
+
+  /* Monster rarity */
+  --color-rarity-common: #6b7280;
+  --color-rarity-uncommon: #16a34a;
+  --color-rarity-rare: #2563eb;
+  --color-rarity-epic: #9333ea;
+  --color-rarity-legendary: #c2410c;
+}
