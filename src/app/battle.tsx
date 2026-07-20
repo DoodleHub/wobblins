@@ -1,11 +1,226 @@
-import { ComingSoonScreen } from "@/components/ComingSoonScreen";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+
+import { Button } from "@/components/Button";
+import { StatBar } from "@/components/StatBar";
+import { COLORS, ELEMENT_EMOJI, type Element } from "@/constants/theme";
+import { resolveBattle, type BattleResult } from "@/supabase/battles";
+import { useSupabase } from "@/supabase/SupabaseProvider";
+import { getPlayerWobblinById, type PlayerWobblin } from "@/supabase/wobblins";
+
+type Phase = "fighting" | "victory" | "defeat";
 
 export default function BattleScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const { session } = useSupabase();
+  const playerId = session?.user.id;
+
+  const [battleKey, setBattleKey] = useState(0);
+
+  const [wobblin, setWobblin] = useState<PlayerWobblin | null>(null);
+  const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
+
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [turnIndex, setTurnIndex] = useState(0);
+  const [log, setLog] = useState<string[]>([]);
+  const [phase, setPhase] = useState<Phase>("fighting");
+
+  useEffect(() => {
+    if (!id || !playerId) return;
+
+    Promise.all([getPlayerWobblinById(id), resolveBattle(id)])
+      .then(([wobblinRow, result]) => {
+        if (!wobblinRow) {
+          setLoadError("Wobblin not found.");
+          return;
+        }
+        setWobblin(wobblinRow);
+        setBattleResult(result);
+        setTurnIndex(0);
+        setLog([`A wild ${result.enemy.name} appears!`]);
+        setPhase("fighting");
+      })
+      .catch((err) => setLoadError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setLoading(false));
+  }, [id, playerId, battleKey]);
+
+  function handleBattleAgain() {
+    setLoading(true);
+    setLoadError(null);
+    setBattleKey((key) => key + 1);
+  }
+
+  function handleAttack() {
+    if (!wobblin || !battleResult || phase !== "fighting") return;
+
+    const playerName = wobblin.nickname ?? wobblin.species.name;
+    const enemyName = battleResult.enemy.name;
+    const turns = battleResult.turns;
+
+    // Reveal one full round (player hit + enemy counter) per tap.
+    const nextIndex = Math.min(turnIndex + 2, turns.length);
+    const revealed = turns.slice(turnIndex, nextIndex);
+    const nextLog = [...log];
+
+    for (const turn of revealed) {
+      if (turn.actor === "player") {
+        nextLog.push(`${playerName} hits ${enemyName} for ${turn.damage} damage.`);
+      } else {
+        nextLog.push(`${enemyName} hits ${playerName} for ${turn.damage} damage.`);
+      }
+    }
+
+    setTurnIndex(nextIndex);
+
+    if (nextIndex >= turns.length) {
+      if (battleResult.winner === "player") {
+        nextLog.push(`${enemyName} was defeated! Victory!`);
+        setPhase("victory");
+      } else {
+        nextLog.push(`${playerName} was defeated...`);
+        setPhase("defeat");
+      }
+    }
+
+    setLog(nextLog);
+  }
+
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-background">
+        <ActivityIndicator color={COLORS.primary} />
+      </View>
+    );
+  }
+
+  if (loadError || !wobblin || !battleResult) {
+    return (
+      <View className="flex-1 items-center justify-center gap-4 bg-background px-8">
+        <Text className="font-sans-medium text-sm text-danger">{loadError ?? "Couldn't start battle."}</Text>
+        <Button label="Back" variant="secondary" onPress={() => router.back()} />
+      </View>
+    );
+  }
+
+  const playerName = wobblin.nickname ?? wobblin.species.name;
+  const playerElement = wobblin.species.element.toLowerCase() as Element;
+  const enemyElement = battleResult.enemy.element.toLowerCase() as Element;
+
+  const lastTurn = turnIndex > 0 ? battleResult.turns[turnIndex - 1] : null;
+  const playerHp = lastTurn ? lastTurn.player_hp : battleResult.player_max_hp;
+  const enemyHp = lastTurn ? lastTurn.enemy_hp : battleResult.enemy.max_hp;
+
   return (
-    <ComingSoonScreen
-      icon="⚔️"
-      title="Battle"
-      description="Challenge AI opponents in simple turn-based combat. Coming soon."
-    />
+    <View className="w-full min-w-0 flex-1 gap-5 bg-background px-6 pb-8 pt-16">
+      <Text className="text-center font-display-bold text-2xl text-text">Battle</Text>
+
+      <View className="flex-row items-center gap-3">
+        <Combatant
+          name={playerName}
+          level={wobblin.level}
+          emoji={ELEMENT_EMOJI[playerElement]}
+          hp={playerHp}
+          maxHp={battleResult.player_max_hp}
+        />
+        <Text className="font-display-bold text-lg text-text-subtle">VS</Text>
+        <Combatant
+          name={battleResult.enemy.name}
+          level={wobblin.level}
+          emoji={ELEMENT_EMOJI[enemyElement]}
+          hp={enemyHp}
+          maxHp={battleResult.enemy.max_hp}
+        />
+      </View>
+
+      <ScrollView className="max-h-48 grow-0 rounded-2xl border border-border bg-surface p-3">
+        <View className="gap-1.5">
+          {log.map((entry, index) => (
+            <Text key={index} className="font-sans text-xs text-text-muted">
+              {entry}
+            </Text>
+          ))}
+        </View>
+      </ScrollView>
+
+      {phase === "fighting" && <Button label="Attack" onPress={handleAttack} />}
+
+      {phase === "victory" && (
+        <View className="gap-4 rounded-2xl border border-success/30 bg-success/10 p-4">
+          <Text className="text-center font-display-bold text-lg text-success">Victory!</Text>
+          <View className="flex-row justify-center gap-6">
+            <Reward icon="🪙" label="Gold" value={`+${battleResult.gold_reward}`} className="text-gold" />
+            <Reward icon="✨" label="XP" value={`+${battleResult.xp_reward}`} className="text-xp" />
+          </View>
+          <View className="gap-3">
+            <Button label="Battle Again" onPress={handleBattleAgain} />
+            <Button label="Back to Wobblin" variant="secondary" onPress={() => router.back()} />
+          </View>
+        </View>
+      )}
+
+      {phase === "defeat" && (
+        <View className="gap-4 rounded-2xl border border-danger/30 bg-danger/10 p-4">
+          <Text className="text-center font-display-bold text-lg text-danger">Defeated</Text>
+          <Text className="text-center font-sans text-sm text-text-muted">
+            {playerName} needs to recover before battling again.
+          </Text>
+          <View className="gap-3">
+            <Button label="Try Again" onPress={handleBattleAgain} />
+            <Button label="Back to Wobblin" variant="secondary" onPress={() => router.back()} />
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function Combatant({
+  name,
+  level,
+  emoji,
+  hp,
+  maxHp,
+}: {
+  name: string;
+  level: number;
+  emoji: string;
+  hp: number;
+  maxHp: number;
+}) {
+  return (
+    <View className="flex-1 gap-2 rounded-2xl border border-border bg-surface p-3">
+      <View className="items-center gap-1">
+        <Text className="text-4xl">{emoji}</Text>
+        <Text className="font-display-bold text-sm text-text" numberOfLines={1}>
+          {name}
+        </Text>
+        <Text className="font-sans-medium text-xs text-text-muted">Level {level}</Text>
+      </View>
+      <StatBar label="HP" value={hp} max={maxHp} color={COLORS.hp} />
+    </View>
+  );
+}
+
+function Reward({
+  icon,
+  label,
+  value,
+  className,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  className: string;
+}) {
+  return (
+    <View className="items-center gap-0.5">
+      <Text className="text-lg">{icon}</Text>
+      <Text className="font-sans text-xs text-text-subtle">{label}</Text>
+      <Text className={`font-sans-bold text-base ${className}`}>{value}</Text>
+    </View>
   );
 }

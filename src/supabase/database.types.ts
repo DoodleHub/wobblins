@@ -14,6 +14,58 @@ export type Database = {
   };
   public: {
     Tables: {
+      battles: {
+        Row: {
+          created_at: string;
+          enemy_species_id: string;
+          id: string;
+          player_id: string;
+          reward: Json;
+          winner: string;
+          wobblin_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          enemy_species_id: string;
+          id?: string;
+          player_id: string;
+          reward?: Json;
+          winner: string;
+          wobblin_id: string;
+        };
+        Update: {
+          created_at?: string;
+          enemy_species_id?: string;
+          id?: string;
+          player_id?: string;
+          reward?: Json;
+          winner?: string;
+          wobblin_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "battles_enemy_species_id_fkey";
+            columns: ["enemy_species_id"];
+            isOneToOne: false;
+            referencedRelation: "wobblin_species";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "battles_player_id_fkey";
+            columns: ["player_id"];
+            isOneToOne: false;
+            referencedRelation: "players";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "battles_wobblin_id_fkey";
+            columns: ["wobblin_id"];
+            isOneToOne: false;
+            referencedRelation: "player_wobblins";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       locations: {
         Row: {
           energy_cost: number;
@@ -188,6 +240,11 @@ export type Database = {
           isOneToOne: true;
           isSetofReturn: false;
         };
+      };
+      resolve_battle: { Args: { p_wobblin_id: string }; Returns: Json };
+      start_battle: {
+        Args: { p_enemy_species_id: string; p_wobblin_id: string };
+        Returns: Json;
       };
       train_wobblin: {
         Args: { p_player_wobblin_id: string; p_training_option: string };

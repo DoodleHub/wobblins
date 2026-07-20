@@ -107,7 +107,11 @@ export default function MonsterDetailScreen() {
 
       <View className="gap-3">
         <Button label="Train" onPress={() => router.push({ pathname: "/train", params: { id: wobblin.id } })} />
-        <Button label="Battle" variant="secondary" onPress={() => router.push("/battle")} />
+        <Button
+          label="Battle"
+          variant="secondary"
+          onPress={() => router.push({ pathname: "/battle", params: { id: wobblin.id } })}
+        />
       </View>
     </ScrollView>
   );
