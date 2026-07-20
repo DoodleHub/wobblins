@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { Icon } from "@/components/Icon";
 import { supabase } from "@/supabase/client";
 import { useSupabase } from "@/supabase/SupabaseProvider";
 
@@ -52,12 +53,18 @@ export default function SupabaseTestScreen() {
           </View>
         )}
         {connection.status === "connected" && (
-          <Text style={[styles.value, styles.success]}>
-            ✅ Connected ({connection.latencyMs}ms)
-          </Text>
+          <View style={styles.row}>
+            <Icon family="ionicons" name="checkmark-circle" size={16} color="#4ade80" />
+            <Text style={[styles.value, styles.success]}>
+              Connected ({connection.latencyMs}ms)
+            </Text>
+          </View>
         )}
         {connection.status === "error" && (
-          <Text style={[styles.value, styles.error]}>❌ {connection.message}</Text>
+          <View style={styles.row}>
+            <Icon family="ionicons" name="close-circle" size={16} color="#f87171" />
+            <Text style={[styles.value, styles.error]}>{connection.message}</Text>
+          </View>
         )}
       </View>
 

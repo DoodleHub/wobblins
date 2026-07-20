@@ -1,8 +1,11 @@
 import type { ReactNode } from "react";
 import { Text, View } from "react-native";
 
+import { Icon, type IconSpec } from "@/components/Icon";
+import { COLORS } from "@/constants/theme";
+
 type EmptyStateProps = {
-  icon: string;
+  icon: IconSpec;
   title: string;
   description: string;
   action?: ReactNode;
@@ -12,7 +15,7 @@ type EmptyStateProps = {
 export function EmptyState({ icon, title, description, action }: EmptyStateProps) {
   return (
     <View className="items-center gap-3 px-6 py-12">
-      <Text className="text-5xl">{icon}</Text>
+      <Icon {...icon} size={48} color={COLORS.textMuted} />
       <Text className="font-display-bold text-lg text-text">{title}</Text>
       <Text className="text-center font-sans text-sm text-text-muted">{description}</Text>
       {action}

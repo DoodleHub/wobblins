@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { Animated, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
+import { Icon } from "@/components/Icon";
 import { TraitBadge } from "@/components/TraitBadge";
-import { ELEMENT_COLORS, ELEMENT_EMOJI, RARITY_COLORS, type Element, type Rarity } from "@/constants/theme";
+import { ELEMENT_COLORS, ELEMENT_ICON, RARITY_COLORS, type Element, type Rarity } from "@/constants/theme";
 import { useCaptureWobblin } from "@/hooks/useWobblins";
 import { useSupabase } from "@/supabase/SupabaseProvider";
 import { getErrorMessage } from "@/utils/errors";
@@ -33,7 +34,6 @@ export default function EncounterScreen() {
 
   const elementColor = ELEMENT_COLORS[params.element];
   const rarityColor = RARITY_COLORS[params.rarity];
-  const emoji = ELEMENT_EMOJI[params.element];
 
   const pulse = useRef(new Animated.Value(1)).current;
 
@@ -75,7 +75,7 @@ export default function EncounterScreen() {
         className="h-28 w-28 items-center justify-center rounded-full border bg-surface"
         style={{ borderColor: `${elementColor}66`, transform: [{ scale: pulse }] }}
       >
-        <Text className="text-6xl">{emoji}</Text>
+        <Icon {...ELEMENT_ICON[params.element]} size={52} color={elementColor} />
       </Animated.View>
 
       <Text className="font-display-bold text-3xl text-text">{params.name}</Text>

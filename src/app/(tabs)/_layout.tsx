@@ -1,13 +1,21 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import { Text } from "react-native";
+import type { ComponentProps } from "react";
 
 import { COLORS } from "@/constants/theme";
 
-const ICONS: Record<string, string> = {
-  index: "🏠",
-  explore: "🧭",
-  collection: "📚",
-  profile: "👤",
+const ICONS: Record<string, ComponentProps<typeof Ionicons>["name"]> = {
+  index: "home",
+  explore: "compass",
+  collection: "library",
+  profile: "person",
+};
+
+const ICONS_OUTLINE: Record<string, ComponentProps<typeof Ionicons>["name"]> = {
+  index: "home-outline",
+  explore: "compass-outline",
+  collection: "library-outline",
+  profile: "person-outline",
 };
 
 export default function TabsLayout() {
@@ -25,7 +33,9 @@ export default function TabsLayout() {
           fontFamily: "Manrope_600SemiBold",
           fontSize: 12,
         },
-        tabBarIcon: () => <Text style={{ fontSize: 20 }}>{ICONS[route.name]}</Text>,
+        tabBarIcon: ({ focused, color, size }) => (
+          <Ionicons name={focused ? ICONS[route.name] : ICONS_OUTLINE[route.name]} size={size} color={color} />
+        ),
       })}
     >
       <Tabs.Screen name="index" options={{ title: "Home" }} />

@@ -1,3 +1,4 @@
+import type { IconSpec } from "@/components/Icon";
 import type { Element, Rarity } from "@/constants/theme";
 
 /**
@@ -19,7 +20,7 @@ export type EncounterSpecies = {
 export type ExploreLocation = {
   id: string;
   name: string;
-  icon: string;
+  icon: IconSpec;
   description: string;
   energyCost: number;
   species: EncounterSpecies[];
@@ -29,7 +30,7 @@ export const LOCATIONS: ExploreLocation[] = [
   {
     id: "forest",
     name: "Forest",
-    icon: "🌲",
+    icon: { family: "material-community", name: "pine-tree" },
     description: "A calm woodland with common Wobblins hiding in the brush.",
     energyCost: 5,
     species: [
@@ -40,7 +41,7 @@ export const LOCATIONS: ExploreLocation[] = [
   {
     id: "volcano",
     name: "Volcano",
-    icon: "🌋",
+    icon: { family: "ionicons", name: "flame" },
     description: "Scorched terrain home to fiery Wobblins.",
     energyCost: 8,
     species: [
@@ -50,7 +51,7 @@ export const LOCATIONS: ExploreLocation[] = [
   {
     id: "ocean",
     name: "Ocean",
-    icon: "🌊",
+    icon: { family: "ionicons", name: "water" },
     description: "Rolling tides hiding aquatic Wobblins beneath the surface.",
     energyCost: 8,
     species: [
@@ -60,7 +61,7 @@ export const LOCATIONS: ExploreLocation[] = [
   {
     id: "shadow-realm",
     name: "Shadow Realm",
-    icon: "🌑",
+    icon: { family: "ionicons", name: "moon" },
     description: "A dark rift where rare Wobblins lurk. Costs more energy to enter.",
     energyCost: 15,
     species: [

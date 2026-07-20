@@ -2,6 +2,9 @@
 import { useEffect, useRef } from "react";
 import { Animated, Text, View } from "react-native";
 
+import { Icon } from "@/components/Icon";
+import { COLORS } from "@/constants/theme";
+
 type LevelUpBannerProps = {
   /** The new level reached, or null/undefined when nothing to celebrate. Each change replays the animation. */
   level: number | null | undefined;
@@ -37,7 +40,7 @@ export function LevelUpBanner({ level, label = "Level Up!" }: LevelUpBannerProps
         className="items-center gap-1 rounded-2xl border border-xp/40 bg-surface px-5 py-3 shadow-lg"
         style={{ opacity: anim, transform: [{ scale }] }}
       >
-        <Text className="text-2xl">⭐</Text>
+        <Icon family="ionicons" name="star" size={26} color={COLORS.xp} />
         <Text className="font-display-bold text-base text-xp">{label}</Text>
         <Text className="font-sans-semibold text-sm text-text">Level {level}</Text>
       </Animated.View>

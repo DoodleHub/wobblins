@@ -15,6 +15,8 @@
  * from data rather than a fixed set of class names.
  */
 
+import type { IconSpec } from "@/components/Icon";
+
 export type Element = "fire" | "ice" | "water" | "nature" | "shadow";
 
 export type Rarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
@@ -53,13 +55,13 @@ export const ELEMENT_COLORS: Record<Element, string> = {
   shadow: "#a78bfa",
 };
 
-/** Placeholder emoji art for each element, used where a monster image would go. */
-export const ELEMENT_EMOJI: Record<Element, string> = {
-  fire: "🔥",
-  ice: "❄️",
-  water: "🌊",
-  nature: "🌿",
-  shadow: "🌑",
+/** Placeholder icon for each element, used where a monster image would go. */
+export const ELEMENT_ICON: Record<Element, IconSpec> = {
+  fire: { family: "ionicons", name: "flame" },
+  ice: { family: "ionicons", name: "snow" },
+  water: { family: "ionicons", name: "water" },
+  nature: { family: "ionicons", name: "leaf" },
+  shadow: { family: "ionicons", name: "moon" },
 };
 
 export const RARITY_COLORS: Record<Rarity, string> = {

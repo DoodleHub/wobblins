@@ -2,8 +2,9 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
 
+import { Icon } from "@/components/Icon";
 import { TraitBadge } from "@/components/TraitBadge";
-import { COLORS, ELEMENT_COLORS, ELEMENT_EMOJI, RARITY_COLORS, type Element, type Rarity } from "@/constants/theme";
+import { COLORS, ELEMENT_COLORS, ELEMENT_ICON, RARITY_COLORS, type Element, type Rarity } from "@/constants/theme";
 
 type MonsterCardProps = {
   name: string;
@@ -32,7 +33,6 @@ export function MonsterCard({
   children,
 }: MonsterCardProps) {
   const isCenter = layout === "center";
-  const emoji = ELEMENT_EMOJI[element];
   const elementColor = ELEMENT_COLORS[element];
   const glowColor = selected ? COLORS.primary : rarity ? RARITY_COLORS[rarity] : elementColor;
 
@@ -53,7 +53,7 @@ export function MonsterCard({
       className={`items-center justify-center rounded-full border bg-background ${isCenter ? "h-20 w-20" : "h-14 w-14"}`}
       style={{ borderColor: `${elementColor}66` }}
     >
-      <Text className={isCenter ? "text-4xl" : "text-2xl"}>{emoji}</Text>
+      <Icon {...ELEMENT_ICON[element]} size={isCenter ? 32 : 22} color={elementColor} />
     </View>
   );
 

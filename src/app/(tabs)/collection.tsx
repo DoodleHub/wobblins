@@ -63,7 +63,7 @@ export default function CollectionScreen() {
       }
       ListEmptyComponent={
         <EmptyState
-          icon="📚"
+          icon={{ family: "ionicons", name: "book" }}
           title={wobblins && wobblins.length > 0 ? "No Wobblins match" : "No Wobblins yet"}
           description={
             wobblins && wobblins.length > 0

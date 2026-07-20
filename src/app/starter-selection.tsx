@@ -59,7 +59,7 @@ export default function StarterSelectionScreen() {
 
       {species && species.length === 0 ? (
         <EmptyState
-          icon="🥚"
+          icon={{ family: "material-community", name: "egg-easter" }}
           title="No starters available"
           description="Check back soon — the world is still hatching."
         />

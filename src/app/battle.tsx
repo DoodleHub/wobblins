@@ -3,11 +3,12 @@ import { useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
+import { Icon, type IconSpec } from "@/components/Icon";
 import { LevelUpBanner } from "@/components/LevelUpBanner";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { StatBar } from "@/components/StatBar";
 import { XPBar } from "@/components/XPBar";
-import { COLORS, ELEMENT_COLORS, ELEMENT_EMOJI, type Element } from "@/constants/theme";
+import { COLORS, ELEMENT_COLORS, ELEMENT_ICON, type Element } from "@/constants/theme";
 import { useResolveBattle } from "@/hooks/useBattle";
 import { useWobblin } from "@/hooks/useWobblins";
 import { useSupabase } from "@/supabase/SupabaseProvider";
@@ -147,8 +148,18 @@ export default function BattleScreen() {
         <View className="gap-4 rounded-2xl border border-success/30 bg-success/10 p-4">
           <Text className="text-center font-display-bold text-lg text-success">Victory!</Text>
           <View className="flex-row justify-center gap-6">
-            <Reward icon="🪙" label="Gold" value={`+${battleResult.gold_reward}`} className="text-gold" />
-            <Reward icon="✨" label="XP" value={`+${battleResult.xp_reward}`} className="text-xp" />
+            <Reward
+              icon={{ family: "material-community", name: "gold" }}
+              label="Gold"
+              value={`+${battleResult.gold_reward}`}
+              className="text-gold"
+            />
+            <Reward
+              icon={{ family: "ionicons", name: "sparkles" }}
+              label="XP"
+              value={`+${battleResult.xp_reward}`}
+              className="text-xp"
+            />
           </View>
           <View className="gap-3">
             <Button label="Battle Again" onPress={startBattle} loading={battleMutation.isPending} />
@@ -207,7 +218,7 @@ function Combatant({
           className="h-14 w-14 items-center justify-center rounded-full border bg-background"
           style={{ borderColor: `${elementColor}66` }}
         >
-          <Text className="text-3xl">{ELEMENT_EMOJI[element]}</Text>
+          <Icon {...ELEMENT_ICON[element]} size={28} color={elementColor} />
         </View>
         <Text className="font-display-bold text-sm text-text" numberOfLines={1}>
           {name}
@@ -226,14 +237,14 @@ function Reward({
   value,
   className,
 }: {
-  icon: string;
+  icon: IconSpec;
   label: string;
   value: string;
   className: string;
 }) {
   return (
     <View className="items-center gap-0.5">
-      <Text className="text-lg">{icon}</Text>
+      <Icon {...icon} size={20} color={COLORS.textMuted} />
       <Text className="font-sans text-xs text-text-subtle">{label}</Text>
       <Text className={`font-sans-bold text-base ${className}`}>{value}</Text>
     </View>

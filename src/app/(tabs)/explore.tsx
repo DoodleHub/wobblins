@@ -2,6 +2,7 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 
+import { Icon } from "@/components/Icon";
 import { LOCATIONS, rollEncounter, type ExploreLocation } from "@/constants/locations";
 import { COLORS } from "@/constants/theme";
 import { usePlayer, useSpendEnergy } from "@/hooks/usePlayer";
@@ -123,7 +124,7 @@ function LocationCard({
     >
       <View className="flex-row items-center gap-4">
         <View className="h-14 w-14 items-center justify-center rounded-full border border-border bg-background">
-          <Text className="text-2xl">{location.icon}</Text>
+          <Icon {...location.icon} size={26} color={COLORS.textMuted} />
         </View>
 
         <View className="flex-1 gap-1">
@@ -134,7 +135,7 @@ function LocationCard({
 
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center gap-1.5 self-start rounded-full border border-energy/30 bg-surface px-2.5 py-1">
-          <Text className="text-xs">⚡</Text>
+          <Icon family="ionicons" name="flash" size={12} color={COLORS.energy} />
           <Text className="font-sans-semibold text-xs text-energy">{location.energyCost} energy</Text>
         </View>
 

@@ -3,9 +3,11 @@ import { useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
+import { Icon, type IconSpec } from "@/components/Icon";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { XPBar } from "@/components/XPBar";
 import { AVATAR_ICON, type AvatarId } from "@/constants/avatars";
+import { COLORS } from "@/constants/theme";
 import { usePlayer } from "@/hooks/usePlayer";
 import { usePlayerWobblins } from "@/hooks/useWobblins";
 import { signOut } from "@/supabase/auth";
@@ -46,7 +48,7 @@ export default function ProfileScreen() {
     );
   }
 
-  const avatarIcon = player.avatar ? AVATAR_ICON[player.avatar as AvatarId] : "🧭";
+  const avatarIcon = player.avatar ? AVATAR_ICON[player.avatar as AvatarId] : AVATAR_ICON.explorer;
   const memberSince = new Date(player.created_at).toLocaleDateString(undefined, {
     month: "short",
     year: "numeric",
@@ -59,7 +61,7 @@ export default function ProfileScreen() {
     >
       <View className="items-center gap-3 rounded-2xl border border-border bg-surface p-6">
         <View className="h-20 w-20 items-center justify-center rounded-full border border-primary/40 bg-primary-light">
-          <Text className="text-4xl">{avatarIcon}</Text>
+          <Icon {...avatarIcon} size={36} color={COLORS.primaryDark} />
         </View>
         <View className="items-center gap-0.5">
           <Text className="font-display-bold text-2xl text-text">{player.username}</Text>
@@ -71,8 +73,12 @@ export default function ProfileScreen() {
       </View>
 
       <View className="flex-row gap-4">
-        <StatCard icon="📚" label="Wobblins" value={String(wobblins?.length ?? 0)} />
-        <StatCard icon="🪙" label="Gold" value={player.gold.toLocaleString()} />
+        <StatCard icon={{ family: "ionicons", name: "book" }} label="Wobblins" value={String(wobblins?.length ?? 0)} />
+        <StatCard
+          icon={{ family: "material-community", name: "gold" }}
+          label="Gold"
+          value={player.gold.toLocaleString()}
+        />
       </View>
 
       <View className="gap-2 rounded-2xl border border-border bg-surface p-4">
@@ -85,10 +91,10 @@ export default function ProfileScreen() {
   );
 }
 
-function StatCard({ icon, label, value }: { icon: string; label: string; value: string }) {
+function StatCard({ icon, label, value }: { icon: IconSpec; label: string; value: string }) {
   return (
     <View className="flex-1 items-center gap-1 rounded-2xl border border-border bg-surface p-4">
-      <Text className="text-2xl">{icon}</Text>
+      <Icon {...icon} size={22} color={COLORS.textMuted} />
       <Text className="font-display-bold text-xl text-text">{value}</Text>
       <Text className="font-sans-medium text-xs text-text-subtle">{label}</Text>
     </View>

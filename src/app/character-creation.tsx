@@ -3,8 +3,10 @@ import { useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
+import { Icon } from "@/components/Icon";
 import { TextField } from "@/components/TextField";
 import { AVATARS, type AvatarId } from "@/constants/avatars";
+import { COLORS } from "@/constants/theme";
 import { completeCharacterCreation } from "@/supabase/auth";
 import { useSupabase } from "@/supabase/SupabaseProvider";
 
@@ -86,7 +88,7 @@ export default function CharacterCreationScreen() {
                     }`}
                     style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.97 : 1 }] })}
                   >
-                    <Text className="text-3xl">{option.icon}</Text>
+                    <Icon {...option.icon} size={28} color={selected ? COLORS.primaryDark : COLORS.textMuted} />
                     <Text
                       className={`font-sans-semibold text-sm ${
                         selected ? "text-primary-dark" : "text-text-muted"

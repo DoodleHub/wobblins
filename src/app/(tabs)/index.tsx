@@ -4,6 +4,7 @@ import { ScrollView, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/EmptyState";
+import { Icon, type IconSpec } from "@/components/Icon";
 import { LevelUpBanner } from "@/components/LevelUpBanner";
 import { MonsterCard } from "@/components/MonsterCard";
 import { Skeleton } from "@/components/Skeleton";
@@ -80,8 +81,20 @@ function PlayerHeader({ player, onLevelUp }: { player: Player; onLevelUp: (level
       </View>
 
       <View className="flex-row gap-6">
-        <Stat icon="🪙" label="Gold" value={player.gold.toLocaleString()} className="text-gold" />
-        <Stat icon="⚡" label="Energy" value={`${player.energy}/${ENERGY_MAX}`} className="text-energy" />
+        <Stat
+          icon={{ family: "material-community", name: "gold" }}
+          iconColor={COLORS.gold}
+          label="Gold"
+          value={player.gold.toLocaleString()}
+          className="text-gold"
+        />
+        <Stat
+          icon={{ family: "ionicons", name: "flash" }}
+          iconColor={COLORS.energy}
+          label="Energy"
+          value={`${player.energy}/${ENERGY_MAX}`}
+          className="text-energy"
+        />
       </View>
 
       <XPBar level={player.level} experience={player.experience} onLevelUp={onLevelUp} />
@@ -102,7 +115,7 @@ function FeaturedWobblinCard({
     return (
       <View className="rounded-2xl border border-border bg-surface">
         <EmptyState
-          icon="🥚"
+          icon={{ family: "material-community", name: "egg-easter" }}
           title="No Wobblin yet"
           description="Choose your starter to begin your journey."
           action={<Button label="Choose Starter" onPress={() => router.push("/starter-selection")} />}
@@ -138,18 +151,20 @@ function FeaturedWobblinCard({
 
 function Stat({
   icon,
+  iconColor,
   label,
   value,
   className,
 }: {
-  icon?: string;
+  icon?: IconSpec;
+  iconColor?: string;
   label: string;
   value: string;
   className: string;
 }) {
   return (
     <View className="flex-row items-center gap-2">
-      {icon && <Text className="text-lg">{icon}</Text>}
+      {icon && <Icon {...icon} size={18} color={iconColor} />}
       <View className="gap-0.5">
         <Text className="font-sans text-xs text-text-subtle">{label}</Text>
         <Text className={`font-sans-bold text-base ${className}`}>{value}</Text>

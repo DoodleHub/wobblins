@@ -3,9 +3,10 @@ import { View } from "react-native";
 
 import { Button } from "./Button";
 import { EmptyState } from "./EmptyState";
+import type { IconSpec } from "./Icon";
 
 type ComingSoonScreenProps = {
-  icon: string;
+  icon: IconSpec;
   title: string;
   description: string;
 };
