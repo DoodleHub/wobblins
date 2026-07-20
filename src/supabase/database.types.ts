@@ -146,8 +146,11 @@ export type Database = {
       };
       players: {
         Row: {
+          active_wobblin_id: string | null;
+          avatar: string | null;
           created_at: string;
           energy: number;
+          energy_updated_at: string;
           experience: number;
           gold: number;
           id: string;
@@ -156,8 +159,11 @@ export type Database = {
           username: string;
         };
         Insert: {
+          active_wobblin_id?: string | null;
+          avatar?: string | null;
           created_at?: string;
           energy?: number;
+          energy_updated_at?: string;
           experience?: number;
           gold?: number;
           id: string;
@@ -166,8 +172,11 @@ export type Database = {
           username: string;
         };
         Update: {
+          active_wobblin_id?: string | null;
+          avatar?: string | null;
           created_at?: string;
           energy?: number;
+          energy_updated_at?: string;
           experience?: number;
           gold?: number;
           id?: string;
@@ -175,7 +184,15 @@ export type Database = {
           onboarding_completed?: boolean;
           username?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "players_active_wobblin_id_fkey";
+            columns: ["active_wobblin_id"];
+            isOneToOne: false;
+            referencedRelation: "player_wobblins";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       wobblin_species: {
         Row: {
@@ -218,6 +235,51 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      add_player_xp: {
+        Args: { p_player_id: string; p_xp: number };
+        Returns: {
+          active_wobblin_id: string | null;
+          avatar: string | null;
+          created_at: string;
+          energy: number;
+          energy_updated_at: string;
+          experience: number;
+          gold: number;
+          id: string;
+          level: number;
+          onboarding_completed: boolean;
+          username: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "players";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      add_wobblin_xp: {
+        Args: { p_player_wobblin_id: string; p_xp: number };
+        Returns: {
+          attack: number;
+          created_at: string;
+          defense: number;
+          experience: number;
+          hp: number;
+          id: string;
+          level: number;
+          nickname: string | null;
+          player_id: string;
+          species_id: string;
+          speed: number;
+          training_points: number;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "player_wobblins";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       attempt_capture: { Args: { p_species_name: string }; Returns: Json };
       capture_wobblin: {
         Args: { p_species_id: string };
@@ -242,12 +304,14 @@ export type Database = {
           isSetofReturn: false;
         };
       };
-      resolve_battle: { Args: { p_wobblin_id: string }; Returns: Json };
-      spend_energy: {
-        Args: { p_location_id: string };
+      regen_player_energy: {
+        Args: { p_player_id: string };
         Returns: {
+          active_wobblin_id: string | null;
+          avatar: string | null;
           created_at: string;
           energy: number;
+          energy_updated_at: string;
           experience: number;
           gold: number;
           id: string;
@@ -262,9 +326,50 @@ export type Database = {
           isSetofReturn: false;
         };
       };
-      start_battle: {
-        Args: { p_enemy_species_id: string; p_wobblin_id: string };
-        Returns: Json;
+      resolve_battle: { Args: { p_wobblin_id: string }; Returns: Json };
+      spend_energy: {
+        Args: { p_location_id: string };
+        Returns: {
+          active_wobblin_id: string | null;
+          avatar: string | null;
+          created_at: string;
+          energy: number;
+          energy_updated_at: string;
+          experience: number;
+          gold: number;
+          id: string;
+          level: number;
+          onboarding_completed: boolean;
+          username: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "players";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      sync_player_energy: {
+        Args: never;
+        Returns: {
+          active_wobblin_id: string | null;
+          avatar: string | null;
+          created_at: string;
+          energy: number;
+          energy_updated_at: string;
+          experience: number;
+          gold: number;
+          id: string;
+          level: number;
+          onboarding_completed: boolean;
+          username: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "players";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
       };
       train_wobblin: {
         Args: { p_player_wobblin_id: string; p_training_option: string };

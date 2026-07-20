@@ -4,16 +4,9 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } fro
 
 import { Button } from "@/components/Button";
 import { TextField } from "@/components/TextField";
+import { AVATARS, type AvatarId } from "@/constants/avatars";
 import { completeCharacterCreation } from "@/supabase/auth";
 import { useSupabase } from "@/supabase/SupabaseProvider";
-
-type AvatarId = "explorer" | "mage" | "knight";
-
-const AVATARS: { id: AvatarId; label: string; icon: string }[] = [
-  { id: "explorer", label: "Explorer", icon: "🧭" },
-  { id: "mage", label: "Mage", icon: "🧙" },
-  { id: "knight", label: "Knight", icon: "🛡️" },
-];
 
 export default function CharacterCreationScreen() {
   const router = useRouter();
@@ -26,7 +19,7 @@ export default function CharacterCreationScreen() {
   const canSubmit = username.trim().length >= 3 && avatar !== null && !loading;
 
   const onSubmit = async () => {
-    if (!canSubmit) return;
+    if (!canSubmit || !avatar) return;
     const userId = session?.user.id;
     if (!userId) {
       setError("Your session expired. Please log in again.");
@@ -37,7 +30,7 @@ export default function CharacterCreationScreen() {
     setError(null);
 
     try {
-      const { error: updateError } = await completeCharacterCreation(userId, username.trim());
+      const { error: updateError } = await completeCharacterCreation(userId, username.trim(), avatar);
       if (updateError) {
         setError(updateError.message);
         return;

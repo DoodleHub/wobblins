@@ -10,11 +10,33 @@ export type PlayerWobblin = Tables<"player_wobblins"> & {
 export type FeaturedWobblin = PlayerWobblin;
 
 /**
- * The player's featured Wobblin for the home dashboard. There's no
- * `is_active` flag yet, so this falls back to their oldest (starter)
- * Wobblin until a proper "set active" feature exists.
+ * The player's featured Wobblin for the home dashboard: whichever one they
+ * last set active via `setActiveWobblin`, or — if they haven't chosen one —
+ * their oldest (starter) Wobblin. The active-Wobblin lookup re-filters by
+ * `player_id`, so a spoofed `active_wobblin_id` pointing at another player's
+ * row just fails to resolve here rather than leaking it.
  */
 export async function getFeaturedWobblin(playerId: string) {
+  const { data: player, error: playerError } = await supabase
+    .from("players")
+    .select("active_wobblin_id")
+    .eq("id", playerId)
+    .maybeSingle();
+
+  if (playerError) throw playerError;
+
+  if (player?.active_wobblin_id) {
+    const { data, error } = await supabase
+      .from("player_wobblins")
+      .select("*, species:wobblin_species(*)")
+      .eq("id", player.active_wobblin_id)
+      .eq("player_id", playerId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (data) return data as FeaturedWobblin;
+  }
+
   const { data, error } = await supabase
     .from("player_wobblins")
     .select("*, species:wobblin_species(*)")

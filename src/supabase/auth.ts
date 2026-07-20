@@ -31,14 +31,14 @@ export async function hasPlayerProfile(userId: string) {
 }
 
 /**
- * Sets the username on the caller's `players` row and marks onboarding
- * complete. The row itself is created server-side by a trigger on
+ * Sets the username and avatar on the caller's `players` row and marks
+ * onboarding complete. The row itself is created server-side by a trigger on
  * `auth.users` insert, so this only ever updates it (there is no
  * client-facing INSERT policy on `players`).
  */
-export function completeCharacterCreation(userId: string, username: string) {
+export function completeCharacterCreation(userId: string, username: string, avatar: string) {
   return supabase
     .from("players")
-    .update({ username, onboarding_completed: true })
+    .update({ username, avatar, onboarding_completed: true })
     .eq("id", userId);
 }

@@ -9,14 +9,20 @@ import { MonsterCard } from "@/components/MonsterCard";
 import { StatBar } from "@/components/StatBar";
 import { XPBar } from "@/components/XPBar";
 import { COLORS, type Element, type Rarity } from "@/constants/theme";
-import { useWobblin } from "@/hooks/useWobblins";
+import { useSetActiveWobblin } from "@/hooks/usePlayer";
+import { useFeaturedWobblin, useWobblin } from "@/hooks/useWobblins";
+import { useSupabase } from "@/supabase/SupabaseProvider";
 import { getErrorMessage } from "@/utils/errors";
 
 export default function MonsterDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { session } = useSupabase();
+  const playerId = session?.user.id;
 
   const { data: wobblin, isPending, error } = useWobblin(id);
+  const { data: featured } = useFeaturedWobblin(playerId);
+  const setActiveWobblin = useSetActiveWobblin(playerId);
   const [levelUp, setLevelUp] = useState<number | null>(null);
 
   if (isPending) {
@@ -37,6 +43,7 @@ export default function MonsterDetailScreen() {
   const element = wobblin.species.element.toLowerCase() as Element;
   const rarity = wobblin.species.rarity.toLowerCase() as Rarity;
   const name = wobblin.nickname ?? wobblin.species.name;
+  const isFeatured = featured?.id === wobblin.id;
 
   return (
     <View className="flex-1 bg-background">
@@ -46,8 +53,23 @@ export default function MonsterDetailScreen() {
         contentContainerClassName="w-full min-w-0 flex-grow gap-6 px-6 pb-8 pt-16"
       >
         <View className="gap-2">
-          <MonsterCard name={name} level={wobblin.level} element={element} rarity={rarity} layout="center" />
+          <MonsterCard
+            name={name}
+            level={wobblin.level}
+            element={element}
+            rarity={rarity}
+            layout="center"
+            eyebrow={isFeatured ? "Featured Wobblin" : undefined}
+          />
           <Text className="text-center font-sans-medium text-sm text-text-muted">{wobblin.species.name}</Text>
+          {!isFeatured && (
+            <Button
+              label="Set as Featured"
+              variant="secondary"
+              loading={setActiveWobblin.isPending}
+              onPress={() => setActiveWobblin.mutate(wobblin.id)}
+            />
+          )}
         </View>
 
         <View className="gap-4 rounded-2xl border border-border bg-surface p-4">

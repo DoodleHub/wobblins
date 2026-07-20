@@ -1,20 +1,39 @@
 import { useRouter } from "expo-router";
-import { FlatList, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import { FlatList, Pressable, Text, View } from "react-native";
 
 import { EmptyState } from "@/components/EmptyState";
 import { MonsterCard } from "@/components/MonsterCard";
 import { Skeleton } from "@/components/Skeleton";
-import type { Element, Rarity } from "@/constants/theme";
+import { COLORS, ELEMENT_COLORS, type Element, type Rarity } from "@/constants/theme";
 import { usePlayerWobblins } from "@/hooks/useWobblins";
 import { useSupabase } from "@/supabase/SupabaseProvider";
 import type { PlayerWobblin } from "@/supabase/wobblins";
 import { getErrorMessage } from "@/utils/errors";
+
+type FilterValue = "all" | Element;
+
+const FILTERS: { value: FilterValue; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "fire", label: "Fire" },
+  { value: "ice", label: "Ice" },
+  { value: "water", label: "Water" },
+  { value: "nature", label: "Nature" },
+  { value: "shadow", label: "Shadow" },
+];
 
 export default function CollectionScreen() {
   const { session } = useSupabase();
   const playerId = session?.user.id;
 
   const { data: wobblins, isPending, error } = usePlayerWobblins(playerId);
+  const [filter, setFilter] = useState<FilterValue>("all");
+
+  const filtered = useMemo(() => {
+    if (!wobblins) return [];
+    if (filter === "all") return wobblins;
+    return wobblins.filter((w) => w.species.element.toLowerCase() === filter);
+  }, [wobblins, filter]);
 
   if (isPending) {
     return <CollectionSkeleton />;
@@ -32,20 +51,67 @@ export default function CollectionScreen() {
     <FlatList
       className="flex-1 bg-background"
       contentContainerClassName="w-full min-w-0 gap-4 px-6 pb-8 pt-16"
-      data={wobblins ?? []}
+      data={filtered}
       keyExtractor={(item) => item.id}
       ListHeaderComponent={
-        <Text className="mb-2 font-display-bold text-3xl text-text">My Wobblins</Text>
+        <View className="mb-2 gap-4">
+          <Text className="font-display-bold text-3xl text-text">My Wobblins</Text>
+          {wobblins && wobblins.length > 0 && (
+            <FilterRow value={filter} onChange={setFilter} />
+          )}
+        </View>
       }
       ListEmptyComponent={
         <EmptyState
           icon="📚"
-          title="No Wobblins yet"
-          description="Explore to discover and capture your first Wobblin."
+          title={wobblins && wobblins.length > 0 ? "No Wobblins match" : "No Wobblins yet"}
+          description={
+            wobblins && wobblins.length > 0
+              ? "Try a different filter."
+              : "Explore to discover and capture your first Wobblin."
+          }
         />
       }
       renderItem={({ item }) => <WobblinCard wobblin={item} />}
     />
+  );
+}
+
+function FilterRow({
+  value,
+  onChange,
+}: {
+  value: FilterValue;
+  onChange: (value: FilterValue) => void;
+}) {
+  return (
+    <View className="flex-row flex-wrap gap-2">
+      {FILTERS.map((option) => {
+        const selected = option.value === value;
+        const color = option.value === "all" ? COLORS.primary : ELEMENT_COLORS[option.value];
+
+        return (
+          <Pressable
+            key={option.value}
+            onPress={() => onChange(option.value)}
+            accessibilityRole="button"
+            accessibilityState={{ selected }}
+            className="rounded-full border px-3 py-1.5"
+            style={{
+              borderColor: selected ? color : COLORS.border,
+              backgroundColor: selected ? `${color}22` : COLORS.surface,
+            }}
+          >
+            <Text
+              className="font-sans-semibold text-xs capitalize"
+              style={{ color: selected ? color : COLORS.textMuted }}
+            >
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
