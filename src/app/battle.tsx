@@ -3,7 +3,9 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
+import { LevelUpBanner } from "@/components/LevelUpBanner";
 import { StatBar } from "@/components/StatBar";
+import { XPBar } from "@/components/XPBar";
 import { COLORS, ELEMENT_EMOJI, type Element } from "@/constants/theme";
 import { useResolveBattle } from "@/hooks/useBattle";
 import { useWobblin } from "@/hooks/useWobblins";
@@ -24,6 +26,7 @@ export default function BattleScreen() {
   const [turnIndex, setTurnIndex] = useState(0);
   const [log, setLog] = useState<string[]>([]);
   const [phase, setPhase] = useState<Phase>("fighting");
+  const [levelUp, setLevelUp] = useState<number | null>(null);
 
   function startBattle() {
     battleMutation.mutate(undefined, {
@@ -108,7 +111,8 @@ export default function BattleScreen() {
   const enemyHp = lastTurn ? lastTurn.enemy_hp : battleResult.enemy.max_hp;
 
   return (
-    <View className="w-full min-w-0 flex-1 gap-5 bg-background px-6 pb-8 pt-16">
+    <View className="relative w-full min-w-0 flex-1 gap-5 bg-background px-6 pb-8 pt-16">
+      <LevelUpBanner level={levelUp} label={`${playerName} leveled up!`} />
       <Text className="text-center font-display-bold text-2xl text-text">Battle</Text>
 
       <View className="flex-row items-center gap-3">
@@ -118,6 +122,7 @@ export default function BattleScreen() {
           emoji={ELEMENT_EMOJI[playerElement]}
           hp={playerHp}
           maxHp={battleResult.player_max_hp}
+          xp={{ experience: wobblin.experience, onLevelUp: setLevelUp }}
         />
         <Text className="font-display-bold text-lg text-text-subtle">VS</Text>
         <Combatant
@@ -177,12 +182,14 @@ function Combatant({
   emoji,
   hp,
   maxHp,
+  xp,
 }: {
   name: string;
   level: number;
   emoji: string;
   hp: number;
   maxHp: number;
+  xp?: { experience: number; onLevelUp?: (level: number) => void };
 }) {
   return (
     <View className="flex-1 gap-2 rounded-2xl border border-border bg-surface p-3">
@@ -194,6 +201,7 @@ function Combatant({
         <Text className="font-sans-medium text-xs text-text-muted">Level {level}</Text>
       </View>
       <StatBar label="HP" value={hp} max={maxHp} color={COLORS.hp} />
+      {xp && <XPBar level={level} experience={xp.experience} onLevelUp={xp.onLevelUp} showLevel={false} />}
     </View>
   );
 }

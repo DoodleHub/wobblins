@@ -1,8 +1,11 @@
 import { useRouter } from "expo-router";
+import { useState } from "react";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
+import { LevelUpBanner } from "@/components/LevelUpBanner";
 import { StatBar } from "@/components/StatBar";
+import { XPBar } from "@/components/XPBar";
 import { COLORS, ELEMENT_CLASSNAMES, ELEMENT_EMOJI, type Element } from "@/constants/theme";
 import { usePlayer } from "@/hooks/usePlayer";
 import { useFeaturedWobblin } from "@/hooks/useWobblins";
@@ -24,38 +27,43 @@ export default function HomeScreen() {
   const { data: player, isPending: playerPending, error: playerError } = usePlayer(playerId);
   const { data: featured } = useFeaturedWobblin(playerId);
 
+  const [levelUp, setLevelUp] = useState<number | null>(null);
+
   const loading = playerPending;
   const error = playerError ? getErrorMessage(playerError) : null;
 
   return (
-    <ScrollView
-      className="flex-1 bg-background"
-      contentContainerClassName="w-full min-w-0 flex-grow gap-6 px-6 pb-8 pt-16"
-    >
-      {loading || !player ? (
-        <View className="flex-1 items-center justify-center py-24">
-          {error ? (
-            <Text className="font-sans-medium text-sm text-danger">{error}</Text>
-          ) : (
-            <ActivityIndicator color={COLORS.primary} />
-          )}
-        </View>
-      ) : (
-        <>
-          <PlayerHeader player={player} />
-          <FeaturedWobblinCard featured={featured ?? null} />
-          {error && (
-            <View className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3">
+    <View className="flex-1 bg-background">
+      <LevelUpBanner level={levelUp} />
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="w-full min-w-0 flex-grow gap-6 px-6 pb-8 pt-16"
+      >
+        {loading || !player ? (
+          <View className="flex-1 items-center justify-center py-24">
+            {error ? (
               <Text className="font-sans-medium text-sm text-danger">{error}</Text>
-            </View>
-          )}
-        </>
-      )}
-    </ScrollView>
+            ) : (
+              <ActivityIndicator color={COLORS.primary} />
+            )}
+          </View>
+        ) : (
+          <>
+            <PlayerHeader player={player} onLevelUp={setLevelUp} />
+            <FeaturedWobblinCard featured={featured ?? null} onLevelUp={setLevelUp} />
+            {error && (
+              <View className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3">
+                <Text className="font-sans-medium text-sm text-danger">{error}</Text>
+              </View>
+            )}
+          </>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
-function PlayerHeader({ player }: { player: Player }) {
+function PlayerHeader({ player, onLevelUp }: { player: Player; onLevelUp: (level: number) => void }) {
   return (
     <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
       <View className="flex-row items-center justify-between">
@@ -72,11 +80,19 @@ function PlayerHeader({ player }: { player: Player }) {
         <Stat icon="🪙" label="Gold" value={player.gold.toLocaleString()} className="text-gold" />
         <Stat icon="⚡" label="Energy" value={`${player.energy}/${ENERGY_MAX}`} className="text-energy" />
       </View>
+
+      <XPBar level={player.level} experience={player.experience} onLevelUp={onLevelUp} />
     </View>
   );
 }
 
-function FeaturedWobblinCard({ featured }: { featured: FeaturedWobblin | null }) {
+function FeaturedWobblinCard({
+  featured,
+  onLevelUp,
+}: {
+  featured: FeaturedWobblin | null;
+  onLevelUp: (level: number) => void;
+}) {
   const router = useRouter();
 
   if (!featured) {
@@ -124,6 +140,7 @@ function FeaturedWobblinCard({ featured }: { featured: FeaturedWobblin | null })
       </View>
 
       <StatBar label="HP" value={featured.hp} max={featured.hp} color={COLORS.hp} />
+      <XPBar level={featured.level} experience={featured.experience} onLevelUp={onLevelUp} />
 
       <View className="flex-row flex-wrap gap-4">
         <Stat label="Attack" value={String(featured.attack)} className="text-text" />
