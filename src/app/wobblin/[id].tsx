@@ -1,30 +1,19 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
 import { StatBar } from "@/components/StatBar";
 import { COLORS, ELEMENT_CLASSNAMES, ELEMENT_EMOJI, type Element, RARITY_CLASSNAMES, type Rarity } from "@/constants/theme";
-import { getPlayerWobblinById, type PlayerWobblin } from "@/supabase/wobblins";
+import { useWobblin } from "@/hooks/useWobblins";
+import { getErrorMessage } from "@/utils/errors";
 
 export default function MonsterDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
-  const [wobblin, setWobblin] = useState<PlayerWobblin | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: wobblin, isPending, error } = useWobblin(id);
 
-  useEffect(() => {
-    if (!id) return;
-
-    getPlayerWobblinById(id)
-      .then(setWobblin)
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setLoading(false));
-  }, [id]);
-
-  if (loading) {
+  if (isPending) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
         <ActivityIndicator color={COLORS.primary} />
@@ -35,7 +24,9 @@ export default function MonsterDetailScreen() {
   if (error || !wobblin) {
     return (
       <View className="flex-1 items-center justify-center gap-4 bg-background px-8">
-        <Text className="font-sans-medium text-sm text-danger">{error ?? "Wobblin not found."}</Text>
+        <Text className="font-sans-medium text-sm text-danger">
+          {error ? getErrorMessage(error) : "Wobblin not found."}
+        </Text>
         <Button label="Back to Collection" variant="secondary" onPress={() => router.back()} />
       </View>
     );

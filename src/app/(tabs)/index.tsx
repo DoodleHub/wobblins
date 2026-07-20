@@ -1,14 +1,15 @@
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
 import { StatBar } from "@/components/StatBar";
 import { COLORS, ELEMENT_CLASSNAMES, ELEMENT_EMOJI, type Element } from "@/constants/theme";
+import { usePlayer } from "@/hooks/usePlayer";
+import { useFeaturedWobblin } from "@/hooks/useWobblins";
 import type { Player } from "@/supabase/players";
-import { getPlayer } from "@/supabase/players";
 import { useSupabase } from "@/supabase/SupabaseProvider";
-import { getFeaturedWobblin, type FeaturedWobblin } from "@/supabase/wobblins";
+import type { FeaturedWobblin } from "@/supabase/wobblins";
+import { getErrorMessage } from "@/utils/errors";
 
 const ENERGY_MAX = 50;
 
@@ -16,22 +17,15 @@ export default function HomeScreen() {
   const { session } = useSupabase();
   const playerId = session?.user.id;
 
-  const [player, setPlayer] = useState<Player | null>(null);
-  const [featured, setFeatured] = useState<FeaturedWobblin | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // No focus-based refetching needed: mutations elsewhere (spend energy,
+  // battle rewards) invalidate these same query keys, and since the tab
+  // navigator keeps this screen mounted, React Query refetches it in the
+  // background the moment that happens — even while another tab is active.
+  const { data: player, isPending: playerPending, error: playerError } = usePlayer(playerId);
+  const { data: featured } = useFeaturedWobblin(playerId);
 
-  useEffect(() => {
-    if (!playerId) return;
-
-    Promise.all([getPlayer(playerId), getFeaturedWobblin(playerId)])
-      .then(([playerRow, featuredWobblin]) => {
-        setPlayer(playerRow);
-        setFeatured(featuredWobblin);
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setLoading(false));
-  }, [playerId]);
+  const loading = playerPending;
+  const error = playerError ? getErrorMessage(playerError) : null;
 
   return (
     <ScrollView
@@ -49,7 +43,7 @@ export default function HomeScreen() {
       ) : (
         <>
           <PlayerHeader player={player} />
-          <FeaturedWobblinCard featured={featured} />
+          <FeaturedWobblinCard featured={featured ?? null} />
           {error && (
             <View className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3">
               <Text className="font-sans-medium text-sm text-danger">{error}</Text>

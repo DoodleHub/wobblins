@@ -1,29 +1,19 @@
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, Text, View } from "react-native";
 
 import { COLORS, ELEMENT_CLASSNAMES, ELEMENT_EMOJI, type Element, RARITY_CLASSNAMES, type Rarity } from "@/constants/theme";
+import { usePlayerWobblins } from "@/hooks/useWobblins";
 import { useSupabase } from "@/supabase/SupabaseProvider";
-import { getPlayerWobblins, type PlayerWobblin } from "@/supabase/wobblins";
+import type { PlayerWobblin } from "@/supabase/wobblins";
+import { getErrorMessage } from "@/utils/errors";
 
 export default function CollectionScreen() {
   const { session } = useSupabase();
   const playerId = session?.user.id;
 
-  const [wobblins, setWobblins] = useState<PlayerWobblin[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: wobblins, isPending, error } = usePlayerWobblins(playerId);
 
-  useEffect(() => {
-    if (!playerId) return;
-
-    getPlayerWobblins(playerId)
-      .then(setWobblins)
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setLoading(false));
-  }, [playerId]);
-
-  if (loading) {
+  if (isPending) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
         <ActivityIndicator color={COLORS.primary} />
@@ -34,7 +24,7 @@ export default function CollectionScreen() {
   if (error) {
     return (
       <View className="flex-1 items-center justify-center bg-background px-6">
-        <Text className="font-sans-medium text-sm text-danger">{error}</Text>
+        <Text className="font-sans-medium text-sm text-danger">{getErrorMessage(error)}</Text>
       </View>
     );
   }

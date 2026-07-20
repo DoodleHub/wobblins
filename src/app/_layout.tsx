@@ -8,6 +8,7 @@ import {
   SpaceGrotesk_600SemiBold,
   SpaceGrotesk_700Bold,
 } from "@expo-google-fonts/space-grotesk";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -20,6 +21,15 @@ import { SupabaseProvider } from "@/supabase/SupabaseProvider";
 import "../../global.css";
 
 SplashScreen.preventAutoHideAsync();
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      retry: 1,
+    },
+  },
+});
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -42,16 +52,18 @@ export default function RootLayout() {
   }
 
   return (
-    <SupabaseProvider>
-      <View className="flex-1 bg-background">
-        <StatusBar style="dark" />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: "#f5f5f8" },
-          }}
-        />
-      </View>
-    </SupabaseProvider>
+    <QueryClientProvider client={queryClient}>
+      <SupabaseProvider>
+        <View className="flex-1 bg-background">
+          <StatusBar style="dark" />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: "#f5f5f8" },
+            }}
+          />
+        </View>
+      </SupabaseProvider>
+    </QueryClientProvider>
   );
 }

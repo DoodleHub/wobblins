@@ -10,8 +10,9 @@ import {
   type Element,
   type Rarity,
 } from "@/constants/theme";
+import { useCaptureWobblin } from "@/hooks/useWobblins";
 import { useSupabase } from "@/supabase/SupabaseProvider";
-import { captureWobblin } from "@/supabase/wobblins";
+import { getErrorMessage } from "@/utils/errors";
 
 type CaptureOutcome = "success" | "failure";
 
@@ -30,7 +31,7 @@ export default function EncounterScreen() {
     base_speed: string;
   }>();
 
-  const [capturing, setCapturing] = useState(false);
+  const captureMutation = useCaptureWobblin(playerId);
   const [outcome, setOutcome] = useState<CaptureOutcome | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,23 +39,17 @@ export default function EncounterScreen() {
   const rarityClasses = RARITY_CLASSNAMES[params.rarity];
   const emoji = ELEMENT_EMOJI[params.element];
 
-  const onCapture = async () => {
+  const onCapture = () => {
     if (!playerId) {
       setError("Your session expired. Please log in again.");
       return;
     }
 
-    setCapturing(true);
     setError(null);
-
-    try {
-      const result = await captureWobblin(params.name);
-      setOutcome(result.success ? "success" : "failure");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setCapturing(false);
-    }
+    captureMutation.mutate(params.name, {
+      onSuccess: (result) => setOutcome(result.success ? "success" : "failure"),
+      onError: (err) => setError(getErrorMessage(err)),
+    });
   };
 
   return (
@@ -109,8 +104,13 @@ export default function EncounterScreen() {
         <Button label="Continue Exploring" onPress={() => router.back()} />
       ) : (
         <View className="w-full gap-3">
-          <Button label="Capture" onPress={onCapture} loading={capturing} />
-          <Button label="Run" variant="secondary" onPress={() => router.back()} disabled={capturing} />
+          <Button label="Capture" onPress={onCapture} loading={captureMutation.isPending} />
+          <Button
+            label="Run"
+            variant="secondary"
+            onPress={() => router.back()}
+            disabled={captureMutation.isPending}
+          />
         </View>
       )}
     </View>

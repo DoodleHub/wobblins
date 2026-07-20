@@ -1,12 +1,14 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
 import { StatBar } from "@/components/StatBar";
 import { COLORS } from "@/constants/theme";
-import { getPlayerWobblinById, type PlayerWobblin } from "@/supabase/wobblins";
-import { trainWobblinStat, type TrainingOption } from "@/supabase/training";
+import { useTrainWobblin } from "@/hooks/useTraining";
+import { useWobblin } from "@/hooks/useWobblins";
+import { useSupabase } from "@/supabase/SupabaseProvider";
+import type { TrainingOption } from "@/supabase/training";
+import { getErrorMessage } from "@/utils/errors";
 
 const TRAINING_OPTIONS: { option: TrainingOption; label: string; color: string }[] = [
   { option: "attack", label: "Train Attack", color: COLORS.primary },
@@ -17,37 +19,13 @@ const TRAINING_OPTIONS: { option: TrainingOption; label: string; color: string }
 export default function TrainingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { session } = useSupabase();
+  const playerId = session?.user.id;
 
-  const [wobblin, setWobblin] = useState<PlayerWobblin | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState<TrainingOption | null>(null);
+  const { data: wobblin, isPending, error: loadError } = useWobblin(id);
+  const trainMutation = useTrainWobblin(id, playerId);
 
-  useEffect(() => {
-    if (!id) return;
-
-    getPlayerWobblinById(id)
-      .then(setWobblin)
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setLoading(false));
-  }, [id]);
-
-  async function handleTrain(option: TrainingOption) {
-    if (!wobblin || pending) return;
-
-    setPending(option);
-    setError(null);
-    try {
-      const updated = await trainWobblinStat(wobblin.id, option);
-      setWobblin({ ...wobblin, ...updated });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setPending(null);
-    }
-  }
-
-  if (loading) {
+  if (isPending) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
         <ActivityIndicator color={COLORS.primary} />
@@ -55,10 +33,12 @@ export default function TrainingScreen() {
     );
   }
 
-  if (!wobblin) {
+  if (loadError || !wobblin) {
     return (
       <View className="flex-1 items-center justify-center gap-4 bg-background px-8">
-        <Text className="font-sans-medium text-sm text-danger">{error ?? "Wobblin not found."}</Text>
+        <Text className="font-sans-medium text-sm text-danger">
+          {loadError ? getErrorMessage(loadError) : "Wobblin not found."}
+        </Text>
         <Button label="Back" variant="secondary" onPress={() => router.back()} />
       </View>
     );
@@ -66,6 +46,7 @@ export default function TrainingScreen() {
 
   const name = wobblin.nickname ?? wobblin.species.name;
   const noPointsLeft = wobblin.training_points <= 0;
+  const pending = trainMutation.isPending ? trainMutation.variables : null;
 
   return (
     <View className="w-full min-w-0 flex-1 gap-6 bg-background px-6 pb-8 pt-16">
@@ -97,9 +78,9 @@ export default function TrainingScreen() {
         <Text className="font-display-bold text-3xl text-text">{wobblin.training_points}</Text>
       </View>
 
-      {error && (
+      {trainMutation.error && (
         <View className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3">
-          <Text className="font-sans-medium text-sm text-danger">{error}</Text>
+          <Text className="font-sans-medium text-sm text-danger">{getErrorMessage(trainMutation.error)}</Text>
         </View>
       )}
 
@@ -111,7 +92,7 @@ export default function TrainingScreen() {
             variant="secondary"
             loading={pending === option}
             disabled={noPointsLeft || (pending !== null && pending !== option)}
-            onPress={() => handleTrain(option)}
+            onPress={() => trainMutation.mutate(option)}
           />
         ))}
       </View>

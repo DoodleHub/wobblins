@@ -1,34 +1,26 @@
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 
 import { LOCATIONS, rollEncounter, type ExploreLocation } from "@/constants/locations";
 import { COLORS } from "@/constants/theme";
-import type { Player } from "@/supabase/players";
-import { getPlayer, spendEnergyForLocation } from "@/supabase/players";
+import { usePlayer, useSpendEnergy } from "@/hooks/usePlayer";
 import { useSupabase } from "@/supabase/SupabaseProvider";
+import { getErrorMessage } from "@/utils/errors";
 
 export default function ExploreScreen() {
   const router = useRouter();
   const { session } = useSupabase();
   const playerId = session?.user.id;
 
-  const [player, setPlayer] = useState<Player | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: player, isPending: playerPending } = usePlayer(playerId);
+  const spendEnergy = useSpendEnergy(playerId);
+
   const [error, setError] = useState<string | null>(null);
   const [exploringId, setExploringId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!playerId) return;
-
-    getPlayer(playerId)
-      .then(setPlayer)
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setLoading(false));
-  }, [playerId]);
-
   const onExplore = async (location: ExploreLocation) => {
-    if (!playerId || !player) return;
+    if (!player) return;
 
     if (player.energy < location.energyCost) {
       setError(`Not enough energy for ${location.name}. Wait for it to regenerate.`);
@@ -39,8 +31,7 @@ export default function ExploreScreen() {
     setExploringId(location.id);
 
     try {
-      const updated = await spendEnergyForLocation(location.id);
-      setPlayer(updated);
+      await spendEnergy.mutateAsync(location.id);
 
       const species = rollEncounter(location);
       router.push({
@@ -56,7 +47,7 @@ export default function ExploreScreen() {
         },
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(getErrorMessage(err));
     } finally {
       setExploringId(null);
     }
@@ -74,7 +65,7 @@ export default function ExploreScreen() {
         </Text>
       </View>
 
-      {loading ? (
+      {playerPending ? (
         <View className="items-center py-12">
           <ActivityIndicator color={COLORS.primary} />
         </View>

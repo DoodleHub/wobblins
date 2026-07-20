@@ -5,9 +5,10 @@ import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 import { Button } from "@/components/Button";
 import { StatBar } from "@/components/StatBar";
 import { COLORS, ELEMENT_EMOJI, type Element } from "@/constants/theme";
-import { resolveBattle, type BattleResult } from "@/supabase/battles";
+import { useResolveBattle } from "@/hooks/useBattle";
+import { useWobblin } from "@/hooks/useWobblins";
 import { useSupabase } from "@/supabase/SupabaseProvider";
-import { getPlayerWobblinById, type PlayerWobblin } from "@/supabase/wobblins";
+import { getErrorMessage } from "@/utils/errors";
 
 type Phase = "fighting" | "victory" | "defeat";
 
@@ -17,42 +18,29 @@ export default function BattleScreen() {
   const { session } = useSupabase();
   const playerId = session?.user.id;
 
-  const [battleKey, setBattleKey] = useState(0);
-
-  const [wobblin, setWobblin] = useState<PlayerWobblin | null>(null);
-  const [battleResult, setBattleResult] = useState<BattleResult | null>(null);
-
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const { data: wobblin, isPending: wobblinPending, error: wobblinError } = useWobblin(id);
+  const battleMutation = useResolveBattle(id, playerId);
 
   const [turnIndex, setTurnIndex] = useState(0);
   const [log, setLog] = useState<string[]>([]);
   const [phase, setPhase] = useState<Phase>("fighting");
 
-  useEffect(() => {
-    if (!id || !playerId) return;
-
-    Promise.all([getPlayerWobblinById(id), resolveBattle(id)])
-      .then(([wobblinRow, result]) => {
-        if (!wobblinRow) {
-          setLoadError("Wobblin not found.");
-          return;
-        }
-        setWobblin(wobblinRow);
-        setBattleResult(result);
+  function startBattle() {
+    battleMutation.mutate(undefined, {
+      onSuccess: (result) => {
         setTurnIndex(0);
         setLog([`A wild ${result.enemy.name} appears!`]);
         setPhase("fighting");
-      })
-      .catch((err) => setLoadError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setLoading(false));
-  }, [id, playerId, battleKey]);
-
-  function handleBattleAgain() {
-    setLoading(true);
-    setLoadError(null);
-    setBattleKey((key) => key + 1);
+      },
+    });
   }
+
+  useEffect(() => {
+    if (id) startBattle();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  const battleResult = battleMutation.data;
 
   function handleAttack() {
     if (!wobblin || !battleResult || phase !== "fighting") return;
@@ -89,6 +77,9 @@ export default function BattleScreen() {
     setLog(nextLog);
   }
 
+  const loading = wobblinPending || (battleMutation.isPending && !battleResult);
+  const loadError = wobblinError ?? battleMutation.error;
+
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
@@ -100,7 +91,9 @@ export default function BattleScreen() {
   if (loadError || !wobblin || !battleResult) {
     return (
       <View className="flex-1 items-center justify-center gap-4 bg-background px-8">
-        <Text className="font-sans-medium text-sm text-danger">{loadError ?? "Couldn't start battle."}</Text>
+        <Text className="font-sans-medium text-sm text-danger">
+          {loadError ? getErrorMessage(loadError) : "Couldn't start battle."}
+        </Text>
         <Button label="Back" variant="secondary" onPress={() => router.back()} />
       </View>
     );
@@ -156,7 +149,7 @@ export default function BattleScreen() {
             <Reward icon="✨" label="XP" value={`+${battleResult.xp_reward}`} className="text-xp" />
           </View>
           <View className="gap-3">
-            <Button label="Battle Again" onPress={handleBattleAgain} />
+            <Button label="Battle Again" onPress={startBattle} loading={battleMutation.isPending} />
             <Button label="Back to Wobblin" variant="secondary" onPress={() => router.back()} />
           </View>
         </View>
@@ -169,7 +162,7 @@ export default function BattleScreen() {
             {playerName} needs to recover before battling again.
           </Text>
           <View className="gap-3">
-            <Button label="Try Again" onPress={handleBattleAgain} />
+            <Button label="Try Again" onPress={startBattle} loading={battleMutation.isPending} />
             <Button label="Back to Wobblin" variant="secondary" onPress={() => router.back()} />
           </View>
         </View>

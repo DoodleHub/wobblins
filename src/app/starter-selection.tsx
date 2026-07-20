@@ -1,53 +1,41 @@
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
 import { ELEMENT_CLASSNAMES, type Element, RARITY_CLASSNAMES, type Rarity } from "@/constants/theme";
+import { useCreateStarterWobblin, useStarterSpecies } from "@/hooks/useWobblins";
 import { useSupabase } from "@/supabase/SupabaseProvider";
-import { createStarterWobblin, getStarterSpecies, type WobblinSpecies } from "@/supabase/wobblins";
+import type { WobblinSpecies } from "@/supabase/wobblins";
+import { getErrorMessage } from "@/utils/errors";
 
 export default function StarterSelectionScreen() {
   const router = useRouter();
   const { session } = useSupabase();
-  const [species, setSpecies] = useState<WobblinSpecies[] | null>(null);
+  const playerId = session?.user.id;
+
+  const { data: species, isPending: speciesPending, error: speciesError } = useStarterSpecies();
+  const createStarter = useCreateStarterWobblin(playerId);
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    getStarterSpecies()
-      .then(setSpecies)
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)));
-  }, []);
-
   const selected = species?.find((option) => option.id === selectedId) ?? null;
-  const canSubmit = selected !== null && !loading;
+  const canSubmit = selected !== null && !createStarter.isPending;
 
-  const onSubmit = async () => {
-    if (!canSubmit) return;
-    const playerId = session?.user.id;
+  const onSubmit = () => {
+    if (!canSubmit || !selected) return;
+
     if (!playerId) {
       setError("Your session expired. Please log in again.");
       return;
     }
 
-    setLoading(true);
     setError(null);
-
-    try {
-      const { error: insertError } = await createStarterWobblin(playerId, selected);
-      if (insertError) {
-        setError(insertError.message);
-        return;
-      }
-
-      router.replace("/");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
+    createStarter.mutate(selected, {
+      onSuccess: () => router.replace("/"),
+      onError: (err) => setError(getErrorMessage(err)),
+    });
   };
 
   return (
@@ -62,7 +50,7 @@ export default function StarterSelectionScreen() {
         </Text>
       </View>
 
-      {species === null && !error ? (
+      {speciesPending ? (
         <View className="items-center py-12">
           <ActivityIndicator color="#4f46e5" />
         </View>
@@ -79,13 +67,15 @@ export default function StarterSelectionScreen() {
         </View>
       )}
 
-      {error && (
+      {(error || speciesError) && (
         <View className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3">
-          <Text className="font-sans-medium text-sm text-danger">{error}</Text>
+          <Text className="font-sans-medium text-sm text-danger">
+            {error ?? getErrorMessage(speciesError)}
+          </Text>
         </View>
       )}
 
-      <Button label="Confirm" onPress={onSubmit} loading={loading} disabled={!canSubmit} />
+      <Button label="Confirm" onPress={onSubmit} loading={createStarter.isPending} disabled={!canSubmit} />
     </ScrollView>
   );
 }

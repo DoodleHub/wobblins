@@ -59,8 +59,8 @@ export async function getStarterSpecies() {
 }
 
 /** Creates the player's starter `player_wobblins` row from a species' base stats. */
-export function createStarterWobblin(playerId: string, species: WobblinSpecies) {
-  return supabase.from("player_wobblins").insert({
+export async function createStarterWobblin(playerId: string, species: WobblinSpecies) {
+  const { error } = await supabase.from("player_wobblins").insert({
     player_id: playerId,
     species_id: species.id,
     hp: species.base_hp,
@@ -68,6 +68,8 @@ export function createStarterWobblin(playerId: string, species: WobblinSpecies) 
     defense: species.base_defense,
     speed: species.base_speed,
   });
+
+  if (error) throw error;
 }
 
 export type CaptureResult = { success: true; wobblin: PlayerWobblin } | { success: false };
