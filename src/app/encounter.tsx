@@ -1,15 +1,11 @@
+/* eslint-disable react-hooks/refs -- Animated.Value held in useRef is the standard RN pattern; it's a mutable animation handle, not a component ref, and reading it during render is how Animated interpolation works. */
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
-import { Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Animated, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
-import {
-  ELEMENT_CLASSNAMES,
-  ELEMENT_EMOJI,
-  RARITY_CLASSNAMES,
-  type Element,
-  type Rarity,
-} from "@/constants/theme";
+import { TraitBadge } from "@/components/TraitBadge";
+import { ELEMENT_COLORS, ELEMENT_EMOJI, RARITY_COLORS, type Element, type Rarity } from "@/constants/theme";
 import { useCaptureWobblin } from "@/hooks/useWobblins";
 import { useSupabase } from "@/supabase/SupabaseProvider";
 import { getErrorMessage } from "@/utils/errors";
@@ -35,9 +31,26 @@ export default function EncounterScreen() {
   const [outcome, setOutcome] = useState<CaptureOutcome | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const elementClasses = ELEMENT_CLASSNAMES[params.element];
-  const rarityClasses = RARITY_CLASSNAMES[params.rarity];
+  const elementColor = ELEMENT_COLORS[params.element];
+  const rarityColor = RARITY_COLORS[params.rarity];
   const emoji = ELEMENT_EMOJI[params.element];
+
+  const pulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!captureMutation.isPending) {
+      pulse.setValue(1);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1.08, duration: 350, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 350, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [captureMutation.isPending, pulse]);
 
   const onCapture = () => {
     if (!playerId) {
@@ -58,17 +71,18 @@ export default function EncounterScreen() {
         A wild Wobblin appeared!
       </Text>
 
-      <View
-        className={`h-28 w-28 items-center justify-center rounded-full border bg-surface ${elementClasses.border}`}
+      <Animated.View
+        className="h-28 w-28 items-center justify-center rounded-full border bg-surface"
+        style={{ borderColor: `${elementColor}66`, transform: [{ scale: pulse }] }}
       >
         <Text className="text-6xl">{emoji}</Text>
-      </View>
+      </Animated.View>
 
       <Text className="font-display-bold text-3xl text-text">{params.name}</Text>
 
       <View className="flex-row gap-2">
-        <Badge label={params.element} border={elementClasses.border} text={elementClasses.text} />
-        <Badge label={params.rarity} border={rarityClasses.border} text={rarityClasses.text} />
+        <TraitBadge label={params.element} color={elementColor} />
+        <TraitBadge label={params.rarity} color={rarityColor} />
       </View>
 
       <View className="flex-row flex-wrap justify-center gap-6">
@@ -113,14 +127,6 @@ export default function EncounterScreen() {
           />
         </View>
       )}
-    </View>
-  );
-}
-
-function Badge({ label, border, text }: { label: string; border: string; text: string }) {
-  return (
-    <View className={`rounded-full border bg-surface px-2.5 py-1 ${border}`}>
-      <Text className={`font-sans-semibold text-xs capitalize ${text}`}>{label}</Text>
     </View>
   );
 }

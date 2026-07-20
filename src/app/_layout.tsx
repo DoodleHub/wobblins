@@ -16,6 +16,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { View } from "react-native";
 
+import { COLORS } from "@/constants/theme";
 import { SupabaseProvider } from "@/supabase/SupabaseProvider";
 
 import "../../global.css";
@@ -55,11 +56,11 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <SupabaseProvider>
         <View className="flex-1 bg-background">
-          <StatusBar style="dark" />
+          <StatusBar style="light" />
           <Stack
             screenOptions={{
               headerShown: false,
-              contentStyle: { backgroundColor: "#f5f5f8" },
+              contentStyle: { backgroundColor: COLORS.background },
             }}
           />
         </View>

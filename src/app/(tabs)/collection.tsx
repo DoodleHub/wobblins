@@ -1,7 +1,10 @@
 import { useRouter } from "expo-router";
-import { ActivityIndicator, FlatList, Pressable, Text, View } from "react-native";
+import { FlatList, Text, View } from "react-native";
 
-import { COLORS, ELEMENT_CLASSNAMES, ELEMENT_EMOJI, type Element, RARITY_CLASSNAMES, type Rarity } from "@/constants/theme";
+import { EmptyState } from "@/components/EmptyState";
+import { MonsterCard } from "@/components/MonsterCard";
+import { Skeleton } from "@/components/Skeleton";
+import type { Element, Rarity } from "@/constants/theme";
 import { usePlayerWobblins } from "@/hooks/useWobblins";
 import { useSupabase } from "@/supabase/SupabaseProvider";
 import type { PlayerWobblin } from "@/supabase/wobblins";
@@ -14,11 +17,7 @@ export default function CollectionScreen() {
   const { data: wobblins, isPending, error } = usePlayerWobblins(playerId);
 
   if (isPending) {
-    return (
-      <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator color={COLORS.primary} />
-      </View>
-    );
+    return <CollectionSkeleton />;
   }
 
   if (error) {
@@ -39,13 +38,11 @@ export default function CollectionScreen() {
         <Text className="mb-2 font-display-bold text-3xl text-text">My Wobblins</Text>
       }
       ListEmptyComponent={
-        <View className="items-center gap-2 py-24">
-          <Text className="text-4xl">📚</Text>
-          <Text className="font-display-bold text-lg text-text">No Wobblins yet</Text>
-          <Text className="text-center font-sans text-sm text-text-muted">
-            Explore to discover and capture your first Wobblin.
-          </Text>
-        </View>
+        <EmptyState
+          icon="📚"
+          title="No Wobblins yet"
+          description="Explore to discover and capture your first Wobblin."
+        />
       }
       renderItem={({ item }) => <WobblinCard wobblin={item} />}
     />
@@ -57,43 +54,33 @@ function WobblinCard({ wobblin }: { wobblin: PlayerWobblin }) {
 
   const element = wobblin.species.element.toLowerCase() as Element;
   const rarity = wobblin.species.rarity.toLowerCase() as Rarity;
-  const elementClasses = ELEMENT_CLASSNAMES[element];
-  const rarityClasses = RARITY_CLASSNAMES[rarity];
-  const emoji = ELEMENT_EMOJI[element];
   const name = wobblin.nickname ?? wobblin.species.name;
 
   return (
-    <Pressable
+    <MonsterCard
+      name={name}
+      level={wobblin.level}
+      element={element}
+      rarity={rarity}
       onPress={() => router.push(`/wobblin/${wobblin.id}`)}
-      className="flex-row items-center gap-4 rounded-2xl border border-border bg-surface p-4"
-    >
-      <View
-        className={`h-14 w-14 items-center justify-center rounded-full border bg-background ${elementClasses?.border ?? "border-border"}`}
-      >
-        <Text className="text-2xl">{emoji}</Text>
-      </View>
+    />
+  );
+}
 
-      <View className="flex-1 gap-1">
-        <Text className="font-display-bold text-lg text-text">{name}</Text>
-        <Text className="font-sans-medium text-sm text-text-muted">Level {wobblin.level}</Text>
-      </View>
-
-      <View className="items-end gap-1.5">
-        {elementClasses && (
-          <View className={`rounded-full border bg-surface px-2.5 py-1 ${elementClasses.border}`}>
-            <Text className={`font-sans-semibold text-xs capitalize ${elementClasses.text}`}>
-              {wobblin.species.element}
-            </Text>
+function CollectionSkeleton() {
+  return (
+    <View className="flex-1 gap-4 bg-background px-6 pb-8 pt-16">
+      <Skeleton className="mb-2 h-9 w-48" />
+      {[0, 1, 2, 3].map((i) => (
+        <View key={i} className="flex-row items-center gap-4 rounded-2xl border border-border bg-surface p-4">
+          <Skeleton className="h-14 w-14 rounded-full" />
+          <View className="flex-1 gap-2">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-20" />
           </View>
-        )}
-        {rarityClasses && (
-          <View className={`rounded-full border bg-surface px-2.5 py-1 ${rarityClasses.border}`}>
-            <Text className={`font-sans-semibold text-xs capitalize ${rarityClasses.text}`}>
-              {wobblin.species.rarity}
-            </Text>
-          </View>
-        )}
-      </View>
-    </Pressable>
+          <Skeleton className="h-6 w-16 rounded-full" />
+        </View>
+      ))}
+    </View>
   );
 }

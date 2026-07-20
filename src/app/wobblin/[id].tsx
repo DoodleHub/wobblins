@@ -1,12 +1,14 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
 import { LevelUpBanner } from "@/components/LevelUpBanner";
+import { LoadingScreen } from "@/components/LoadingScreen";
+import { MonsterCard } from "@/components/MonsterCard";
 import { StatBar } from "@/components/StatBar";
 import { XPBar } from "@/components/XPBar";
-import { COLORS, ELEMENT_CLASSNAMES, ELEMENT_EMOJI, type Element, RARITY_CLASSNAMES, type Rarity } from "@/constants/theme";
+import { COLORS, type Element, type Rarity } from "@/constants/theme";
 import { useWobblin } from "@/hooks/useWobblins";
 import { getErrorMessage } from "@/utils/errors";
 
@@ -18,11 +20,7 @@ export default function MonsterDetailScreen() {
   const [levelUp, setLevelUp] = useState<number | null>(null);
 
   if (isPending) {
-    return (
-      <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator color={COLORS.primary} />
-      </View>
-    );
+    return <LoadingScreen message="Loading Wobblin…" />;
   }
 
   if (error || !wobblin) {
@@ -38,9 +36,6 @@ export default function MonsterDetailScreen() {
 
   const element = wobblin.species.element.toLowerCase() as Element;
   const rarity = wobblin.species.rarity.toLowerCase() as Rarity;
-  const elementClasses = ELEMENT_CLASSNAMES[element];
-  const rarityClasses = RARITY_CLASSNAMES[rarity];
-  const emoji = ELEMENT_EMOJI[element];
   const name = wobblin.nickname ?? wobblin.species.name;
 
   return (
@@ -50,34 +45,9 @@ export default function MonsterDetailScreen() {
         className="flex-1"
         contentContainerClassName="w-full min-w-0 flex-grow gap-6 px-6 pb-8 pt-16"
       >
-        <View className="items-center gap-3">
-          <View
-            className={`h-24 w-24 items-center justify-center rounded-full border bg-surface ${elementClasses?.border ?? "border-border"}`}
-          >
-            <Text className="text-5xl">{emoji}</Text>
-          </View>
-          <View className="items-center gap-1">
-            <Text className="font-display-bold text-2xl text-text">{name}</Text>
-            <Text className="font-sans-medium text-sm text-text-muted">
-              Level {wobblin.level} · {wobblin.species.name}
-            </Text>
-          </View>
-          <View className="flex-row gap-2">
-            {elementClasses && (
-              <View className={`rounded-full border bg-surface px-2.5 py-1 ${elementClasses.border}`}>
-                <Text className={`font-sans-semibold text-xs capitalize ${elementClasses.text}`}>
-                  {wobblin.species.element}
-                </Text>
-              </View>
-            )}
-            {rarityClasses && (
-              <View className={`rounded-full border bg-surface px-2.5 py-1 ${rarityClasses.border}`}>
-                <Text className={`font-sans-semibold text-xs capitalize ${rarityClasses.text}`}>
-                  {wobblin.species.rarity}
-                </Text>
-              </View>
-            )}
-          </View>
+        <View className="gap-2">
+          <MonsterCard name={name} level={wobblin.level} element={element} rarity={rarity} layout="center" />
+          <Text className="text-center font-sans-medium text-sm text-text-muted">{wobblin.species.name}</Text>
         </View>
 
         <View className="gap-4 rounded-2xl border border-border bg-surface p-4">

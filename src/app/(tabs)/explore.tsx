@@ -119,6 +119,7 @@ function LocationCard({
       className={`gap-3 rounded-2xl border border-border bg-surface p-4 ${
         !canAfford ? "opacity-50" : ""
       }`}
+      style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.98 : 1 }] })}
     >
       <View className="flex-row items-center gap-4">
         <View className="h-14 w-14 items-center justify-center rounded-full border border-border bg-background">

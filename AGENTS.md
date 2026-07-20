@@ -1,968 +1,234 @@
-# Monster Realms RPG - React Native + Supabase MVP
+# Wobblins - React Native + Supabase Monster Collection RPG
 
 ## Project Overview
 
-Build a mobile-first social monster collection RPG using:
+Wobblins is a mobile-first monster collection RPG built with:
 
-- React Native
-- Expo
+- React Native + Expo (SDK 57, Expo Router for file-based navigation)
 - TypeScript
-- Supabase
-- PostgreSQL
-- Supabase Auth
-- Supabase Realtime
-- React Navigation
+- NativeWind (Tailwind CSS v4 for React Native)
+- TanStack React Query for server state
+- Supabase (Postgres, Auth, Row Level Security, RPC functions)
 
-The goal of the MVP is to create a playable vertical slice:
+The vertical slice that exists today:
 
-Player creates an account →
-chooses a starter monster →
-explores locations →
-discovers monsters →
-captures monsters →
-trains monsters →
-battles →
-progresses collection.
+Player creates an account (email/password) →
+completes character creation →
+chooses a starter Wobblin →
+explores locations (spends energy) →
+encounters a wild Wobblin →
+attempts to capture it →
+views their collection →
+trains a Wobblin's stats →
+battles a wild opponent →
+earns gold/XP and levels up.
 
-The MVP should feel like a lightweight social RPG similar to:
-
-- Pokémon collection systems
-- Mobile idle RPG progression
-- Social MMO mechanics
-
-The game should prioritize:
-
-1. Player progression
-2. Monster ownership
-3. Collection addiction
-4. Strategic customization
-5. Future multiplayer expansion
-
-The MVP should NOT require expensive artwork or animation.
+This document describes what is **actually built**, not an aspirational spec. When adding features, match the patterns described here before introducing new ones.
 
 ---
 
 # Product Philosophy
 
-The game should create the feeling:
+The game should create the feeling: "My Wobblin is unique."
 
-"My monster is unique."
+Two players owning the same species should still have different Wobblins because of stats, growth choices (training), and rarity. Right now uniqueness comes from **stats and training only** — traits, attacks/movesets, and personality are not implemented (see "Not Implemented" below). Don't assume they exist when reading or extending code.
 
-Two players owning the same species should still have different monsters because of:
-
-- Stats
-- Traits
-- Attacks
-- Growth choices
-- Personality
-- Rarity
-
-The database and game systems are more important than visuals.
+The database and game systems matter more than visuals. The MVP should not require expensive artwork or animation.
 
 ---
 
-# Technical Constraints
+# Technical Stack (as built)
 
-## Framework Constraints
+- **Expo Router**, not React Navigation directly. Routes are files under `src/app/`. `(tabs)` is a route group for the bottom tab navigator.
+- **NativeWind v4** (`className` props backed by Tailwind). Theme tokens live in two places that must stay in sync:
+  - `global.css` — the `@theme` block, source of truth, used via `bg-*`/`text-*`/`border-*` class names.
+  - `src/constants/theme.ts` — plain-JS mirror of the same values, used only where className strings can't reach (dynamic lookups keyed by data like `element`/`rarity`, and native APIs like `StatusBar` or SVG fill that need a raw hex string).
+- **TanStack React Query** for all server state. `QueryClient` is created once in `src/app/_layout.tsx`. Do not introduce Zustand or another global state library — server state belongs in Supabase/React Query; there is currently no client-only global state need.
+- **Supabase JS client** (`src/supabase/client.ts`), wrapped by `SupabaseProvider` (`src/supabase/SupabaseProvider.tsx`) which exposes `{ session, isLoading }` via `useSupabase()`.
+- Fonts: Manrope (body) + Space Grotesk (display), loaded via `@expo-google-fonts/*` in `_layout.tsx`.
 
-Use:
+## Code organization (actual)
 
-- React Native
-- Expo
-- TypeScript
+```
+src/
+  app/            # Expo Router routes (screens) — file path = URL path
+    (tabs)/       # Bottom tab group: index, explore, collection, profile
+  components/     # Shared presentational components
+  constants/      # theme.ts (design tokens), locations.ts (explore data)
+  hooks/          # React Query hooks, one file per domain, + queryKeys.ts
+  supabase/       # Thin service functions wrapping supabase-js calls/RPCs
+  utils/          # xp.ts (leveling curve), errors.ts
+```
 
-Avoid:
+The `screens/`, `navigation/`, and `services/` folders from earlier planning docs do not exist — Expo Router's `app/` replaces both `screens/` and `navigation/`, and `supabase/` plays the role of `services/`.
 
-- Native modules unless required
-- Heavy animation libraries
-- Complex 3D rendering
-- Large image assets
+### Hook / service pattern
+
+Each domain has a `src/supabase/<domain>.ts` file of plain async functions (calling `supabase.from(...)` or `supabase.rpc(...)`) and a matching `src/hooks/use<Domain>.ts` file of React Query hooks that call those functions. `src/hooks/queryKeys.ts` is the single query-key factory — always add new keys there so mutations can invalidate the right queries. Follow this pattern for new features rather than calling `supabase` directly from a screen.
+
+## Reusable components (actual)
+
+`Button`, `MonsterCard`, `StatBar`, `XPBar`, `TraitBadge` (used for element/rarity pills, not personality traits), `TextField`, `LevelUpBanner`, `EmptyState`, `LoadingScreen`, `Skeleton`, `ComingSoonScreen`. Reuse these instead of building new ad hoc cards/badges/loaders.
+
+---
+
+# Supabase Setup (already provisioned)
+
+There is **no local `supabase/migrations` folder** in this repo — the schema lives only in the remote project and is inspected/changed through the Supabase MCP tools (`list_tables`, `list_migrations`, `apply_migration`, `execute_sql`, `get_advisors`, `generate_typescript_types`, etc.). Before touching the schema:
+
+1. Run `list_tables` / `list_migrations` to see current state — don't assume this doc is still current, it will drift.
+2. Make schema changes with `apply_migration` (never hand-edit `src/supabase/database.types.ts` — regenerate it with `generate_typescript_types` after any schema change).
+3. Check `get_advisors` after migrations for RLS/security lint issues.
+
+Row Level Security is enabled on every table (`players`, `wobblin_species`, `player_wobblins`, `locations`, `battles`). Keep it that way for any new table.
+
+## Core game-logic pattern: server computes truth, client replays
+
+Every mechanic that affects rewards, currency, or randomness is a **Postgres RPC function**, called via `supabase.rpc(...)`, not computed client-side:
+
+- `spend_energy(p_location_id)` — looks up the location's energy cost server-side and debits `players.energy`. The client never sends a cost.
+- `attempt_capture(p_species_name)` — rolls capture odds and, on success, creates the `player_wobblins` row with stats derived from `wobblin_species` server-side.
+- `resolve_battle(p_wobblin_id)` — picks a random wild opponent, simulates the entire multi-turn battle, credits gold/XP, and logs a `battles` row, all atomically. The client (`battle.tsx`) only replays the returned `turns[]` array one tap at a time for pacing/feel — it never reports its own outcome.
+- `train_wobblin(p_player_wobblin_id, p_training_option)` — enforces ownership and remaining `training_points` server-side.
+- `add_player_xp` / `add_wobblin_xp` — leveling curve functions; `src/utils/xp.ts` (`getXpProgress`) is a client-side **mirror** of the same curve (`cumulativeXp(level) = 100 * level * (level+1) / 2`) purely for rendering XP bars — it must stay in sync if the curve changes server-side.
+
+**When adding a new mechanic that touches currency, stats, or randomness, add a new Postgres RPC rather than computing it in the client.** This is the load-bearing security pattern in this codebase (a tampered client can't forge rewards) — don't break it for convenience.
+
+Two RPCs exist in the schema (`capture_wobblin`, `start_battle`) that the client does **not** currently call — `attempt_capture` and `resolve_battle` superseded them. Check before assuming either is live.
+
+---
+
+# Database Schema (actual, introspected from Supabase)
+
+## players
+
+```
+id (uuid, = auth.users.id)
+username (text, unique)
+level (int, default 1)
+experience (int, default 0)
+gold (int, default 500)
+energy (int, default 50)
+onboarding_completed (bool, default false)
+created_at
+```
+
+A trigger on `auth.users` insert creates this row automatically with a placeholder username; `onboarding_completed` (not row existence) is what gates character creation.
+
+## wobblin_species
+
+Static species definitions: `id, name (unique), element, rarity, description, base_hp, base_attack, base_defense, base_speed`. Seeded with 9 species. No `attacks` or `traits` columns.
+
+## player_wobblins
+
+Owned Wobblins: `id, player_id, species_id, nickname, level, experience, hp, attack, defense, speed, training_points, created_at`.
+
+There is no `is_active`/featured flag — the Home screen's "featured Wobblin" is just the player's oldest (`created_at asc`, limit 1) Wobblin, i.e. the starter, until a proper "set active" feature exists.
+
+## locations
+
+`id, name (unique), energy_cost`. Backs the server-side cost lookup for `spend_energy`. The 4 explorable locations (Forest, Volcano, Ocean, Shadow Realm) and which wild species appear in each are currently **hardcoded client-side** in `src/constants/locations.ts`, not read from this table or from `wobblin_species` — there's no capture-from-database flow yet for wild encounters, only for the resulting captured Wobblin.
+
+## battles
+
+Battle history: `id, player_id, wobblin_id, enemy_species_id, winner, reward (jsonb), created_at`.
+
+## Tables that do NOT exist (do not assume otherwise)
+
+`attacks`, `monster_attacks`, `users_inventory`. There is no moves/attacks system, no items/inventory system, and no `trait_1`/`trait_2` columns anywhere. Any older design-doc language implying otherwise is describing future work, not current state.
+
+---
+
+# Screens (actual routes)
+
+| Route | Purpose |
+|---|---|
+| `/login`, `/signup` | Email/password auth only. **No Google/Apple sign-in is implemented** despite that being a common RPG pattern — don't assume OAuth buttons exist. |
+| `/character-creation` | Username + one of 3 emoji avatars (Explorer/Mage/Knight). Avatar choice is not currently persisted anywhere in the schema — it's local UI state only. |
+| `/starter-selection` | Pick 1 of the seeded `wobblin_species` as a starter; creates a `player_wobblins` row at the species' base stats (not level 5 with attacks/traits as older planning docs suggested — there are no attacks/traits to assign). |
+| `(tabs)/index` (Home) | Player header (username, level, gold, energy, XP bar) + featured Wobblin card. |
+| `(tabs)/explore` | Location list from `constants/locations.ts`; spends energy via RPC, then navigates to `/encounter` with the rolled species passed as route params. |
+| `/encounter` | Wild Wobblin reveal + Capture/Run. There is no separate "Capture Screen" with a progress meter — capture is a single button on this screen, resolved instantly by `attempt_capture`. |
+| `(tabs)/collection` | Grid/list of owned Wobblins. No element/rarity filter UI yet (the original filter-chip spec is not built). |
+| `/wobblin/[id]` (Monster Detail) | Stats, XP bar, Train / Battle actions. No attacks list or traits section (nothing to show). |
+| `/train` | Spend `training_points` on Attack/Defense/Speed. |
+| `/battle` | Auto-resolves a full battle server-side on entry; player taps "Attack" repeatedly to reveal turns from the precomputed log. There is no Attack/Defend/Swap choice per turn, no move selection, and no multi-monster team swapping. |
+| `(tabs)/profile` | Stub — shows a "Coming soon" placeholder plus a working Sign Out button. Level/collection count/achievements are not implemented. |
+| `/supabase-test` | Dev-only connectivity check screen; not part of the player-facing flow. |
+
+There is no dedicated Splash screen route — native splash + Expo font loading gate (`_layout.tsx`) serves that purpose, then `SupabaseProvider`'s session state determines where routing lands.
+
+The bottom tab bar has **4 tabs** (Home, Explore, Collection, Profile) — there is no separate Battle tab; battles are entered from a Wobblin's detail screen.
+
+---
+
+# Game Systems (actual)
+
+## Stats
+
+Every `player_wobblins` row has `hp, attack, defense, speed`, initialized from the species' base stats and increased only via training.
+
+## Leveling / XP
+
+`experience` accumulates on `players` and on individual `player_wobblins`. Curve: cumulative XP to reach level L is `100 * L * (L+1) / 2` (see `src/utils/xp.ts`, mirroring the server-side `add_player_xp`/`add_wobblin_xp` functions). Leveling is triggered server-side inside `resolve_battle`.
+
+## Training
+
+Each `player_wobblins` row has a `training_points` balance (starts at 0 — currently only grows via leveling server-side). Training screen offers Attack/Defense/Speed, each costing 1 point, enforced by the `train_wobblin` RPC.
+
+## Exploration & Energy
+
+4 locations, each with a fixed energy cost (Forest 5, Volcano 8, Ocean 8, Shadow Realm 15 — not a flat 5 across all locations). `players.energy` defaults to 50. **There is currently no automated energy regeneration** (no cron job / edge function found — `pg_cron` extension is available in the project but not installed). If "regen 1 energy per 5 minutes" is implemented, it needs a new mechanism (e.g. `pg_cron` + RPC, or compute-on-read from a timestamp) — don't assume it already runs.
+
+## Capture
+
+Single-step: tap Capture on the encounter screen → `attempt_capture` RPC rolls success and, if successful, inserts the `player_wobblins` row. No visible capture-probability formula or progress bar client-side (odds are entirely server-side).
+
+## Battle
+
+Player-vs-wild-AI only (no PvP). One Wobblin at a time (no team/swap). `resolve_battle` runs the full simulation server-side and returns a turn log the client replays for feel; on a win, gold + XP are credited and a `battles` row is logged automatically.
+
+## Traits & Attacks — NOT implemented
+
+Despite being central to earlier concept docs, there is no traits system (Cold Blood, Lucky, Predator, etc.) and no attacks/moves system (no move selection, no elemental type-effectiveness logic, no accuracy/damage-per-move). `ELEMENT_COLORS`/`ELEMENT_EMOJI` in `theme.ts` are purely cosmetic (badge tinting), not a combat mechanic. Treat these as future work, not existing surface area to build on top of.
 
 ---
 
 # Visual Constraints
 
-The MVP should require minimal images.
-
-Use:
-
-- Icons
-- Emojis
-- SVG shapes
-- Gradient backgrounds
-- Cards
-- Stat bars
-- Simple illustrations
-
-Do NOT build:
-
-- Full character artwork pipeline
-- Animated battle scenes
-- Large map assets
-
----
-
-# Supabase Requirements
-
-Supabase handles:
-
-- Authentication
-- Player data
-- Monster ownership
-- Game state
-- Leaderboards
-- Future realtime features
-
-Required features:
-
-- Email authentication
-- User profiles
-- Database persistence
-- Row level security
-- Realtime ready architecture
-
----
-
-# Database Schema
-
-## users
-
-Stores player information.
-
-Fields:
-
-id
-username
-level
-experience
-gold
-energy
-created_at
-
----
-
-## monster_species
-
-Static monster definitions.
-
-Example:
-
-Frostfang
-Element: Ice
-Rarity: Rare
-Base HP: 100
-Base Attack: 25
-
-Fields:
-
-id
-name
-element
-rarity
-description
-base_hp
-base_attack
-base_defense
-base_speed
-
----
-
-## player_monsters
-
-Owned monsters.
-
-Fields:
-
-id
-player_id
-species_id
-nickname
-level
-experience
-current_hp
-
-attack_stat
-defense_stat
-speed_stat
-
-trait_1
-trait_2
-
-created_at
-
----
-
-## attacks
-
-Available moves.
-
-Fields:
-
-id
-name
-element
-damage
-accuracy
-description
-
----
-
-## monster_attacks
-
-Monster attack assignments.
-
-Fields:
-
-monster_id
-attack_id
-slot_number
-
----
-
-## users_inventory
-
-Items.
-
-Fields:
-
-id
-user_id
-item_type
-quantity
-
----
-
-## battles
-
-Battle history.
-
-Fields:
-
-id
-player_id
-enemy_id
-winner
-created_at
-
----
-
-# MVP Screens
-
-The app contains the following screens.
-
----
-
-# 1. Splash Screen
-
-Purpose:
-
-Brand introduction and loading.
-
-Requirements:
-
-Display:
-
-- Game logo
-- Loading indicator
-- Background fantasy theme
-
-Logic:
-
-Check authentication state.
-
-If authenticated:
-
-Navigate to Home.
-
-If new user:
-
-Navigate to Login.
-
----
-
-# 2. Login Screen
-
-Purpose:
-
-Allow account creation.
-
-UI:
-
-Monster Realms
-
-[ Continue with Google ]
-
-[ Continue with Apple ]
-
-[ Email Login ]
-
-Requirements:
-
-- Supabase Auth integration
-- Persist sessions
-- Handle errors
-
-Constraints:
-
-No complex onboarding.
-
-Login should take under 30 seconds.
-
----
-
-# 3. Character Creation Screen
-
-Purpose:
-
-Create player's identity.
-
-Fields:
-
-Username
-
-Avatar selection:
-
-- Mage
-- Knight
-- Ranger
-- Explorer
-
-The avatar does not require images.
-
-Use:
-
-- Icons
-- SVG
-- Emoji
-
----
-
-# 4. Starter Monster Screen
-
-Purpose:
-
-Choose first monster.
-
-Display three options:
-
-Example:
-
-## Emberling
-
-Element:
-Fire
-
-Style:
-Aggressive
-
-## Moss Slime
-
-Element:
-Nature
-
-Style:
-Balanced
-
-## Frostfang
-
-Element:
-Ice
-
-Style:
-Defensive
-
-Each starter receives:
-
-- Level 5
-- Two attacks
-- One trait
-
----
-
-# 5. Home Dashboard
-
-Main player hub.
-
-Display:
-
-Player:
-
-- Username
-- Level
-- Gold
-- Energy
-
-Featured monster:
-
-- Name
-- Level
-- HP bar
-
-Actions:
-
-Primary buttons:
-
-Explore
-Battle
-My Monsters
-
-Bottom navigation:
-
-Home
-Explore
-Monsters
-Battle
-Profile
-
----
-
-# 6. Explore Screen
-
-Purpose:
-
-Find monsters.
-
-Locations:
-
-Forest
-
-Common:
-
-- Moss Slime
-- Leaf Bug
-
-Volcano
-
-Common:
-
-- Emberling
-
-Ocean
-
-Common:
-
-- Tide Crab
-
-Shadow Realm
-
-Rare monsters
-
-Each exploration:
-
-Costs energy.
-
-Example:
-
-Forest:
-
-Cost:
-5 energy
-
-Result:
-
-Random monster encounter.
-
----
-
-# 7. Encounter Screen
-
-Purpose:
-
-Monster discovery moment.
-
-Display:
-
-Monster name
-
-Level
-
-Rarity
-
-Element
-
-Stats
-
-Actions:
-
-Capture
-
-Battle
-
-Run
-
----
-
-# 8. Capture Screen
-
-Purpose:
-
-Capture mechanic.
-
-Logic:
-
-Calculate capture probability.
-
-Formula:
-
-Base capture chance
-
--
-
-Player bonuses
-
--
-
-Monster rarity penalty
-
-Display:
-
-Capture progress.
-
-Success:
-
-Add monster to player inventory.
-
----
-
-# 9. Monster Collection Screen
-
-Purpose:
-
-View owned monsters.
-
-Display:
-
-Cards containing:
-
-- Icon
-- Name
-- Level
-- Rarity
-- Element
-
-Filters:
-
-All
-
-Fire
-
-Water
-
-Nature
-
-Rare
-
----
-
-# 10. Monster Detail Screen
-
-Most important screen.
-
-Display:
-
-Monster:
-
-Name
-
-Level
-
-Experience
-
-Stats:
-
-HP
-
-Attack
-
-Defense
-
-Speed
-
-Attacks:
-
-Example:
-
-Ice Bite
-
-Blizzard
-
-Traits:
-
-Example:
-
-Cold Blood
-
-Effect:
-
-Reduced fire damage
-
-Actions:
-
-Train
-
-Battle
-
-Release
-
----
-
-# 11. Training Screen
-
-Purpose:
-
-Customize monster growth.
-
-Training should NOT be unlimited.
-
-Rules:
-
-Each monster receives limited training points.
-
-Training options:
-
-Attack Training
-
-+Attack
-
-Defense Training
-
-+Defense
-
-Speed Training
-
-+Speed
-
-Costs:
-
-Training Points
-
----
-
-# 12. Battle Screen
-
-Purpose:
-
-Simple turn-based combat.
-
-Battle flow:
-
-Player chooses:
-
-Attack
-
-Defend
-
-Swap
-
-Damage calculated by:
-
-Attack stat
-
-Ability power
-
-Defense
-
-Random factor
-
-No animations required.
-
-Use:
-
-Cards
-
-Text logs
-
-Health bars
-
----
-
-# 13. Profile Screen
-
-Display:
-
-Player level
-
-Collection count
-
-Achievements
-
-Future:
-
-Guild information
-
-Ranking
-
-Badges
-
----
-
-# Game Systems
-
-## Monster Stats
-
-Every monster has:
-
-HP
-
-Attack
-
-Defense
-
-Speed
-
----
-
-## Traits
-
-Traits are passive abilities.
-
-Examples:
-
-Cold Blood
-
-Effect:
-
-20% less fire damage
-
-Lucky
-
-Effect:
-
-Higher rare encounter chance
-
-Predator
-
-Effect:
-
-More damage against low HP enemies
-
-Traits are NOT attacks.
-
----
-
-## Attacks
-
-Active battle actions.
-
-Each monster has:
-
-2-4 attacks.
-
-Example:
-
-Ice Bite
-
-Damage:
-40
-
-Freeze Ray
-
-Chance:
-20% freeze
-
----
-
-# Energy System
-
-Exploration requires energy.
-
-Example:
-
-Maximum:
-
-50
-
-Regeneration:
-
-1 energy every 5 minutes.
-
----
-
-# Economy
-
-Currencies:
-
-Gold:
-
-Used for:
-
-- Training
-- Items
-
-Future:
-
-Premium currency
-
----
-
-# Code Organization
-
-Recommended structure:
-
-src/
-
-components/
-
-screens/
-
-navigation/
-
-services/
-
-supabase/
-
-hooks/
-
-types/
-
-utils/
-
-constants/
-
----
-
-# Component Rules
-
-Create reusable components:
-
-MonsterCard
-
-StatBar
-
-Button
-
-ItemCard
-
-AttackCard
-
-TraitBadge
-
-Avoid duplicated UI.
-
----
-
-# State Management
-
-Prefer:
-
-React Query
-
-or
-
-Zustand
-
-Avoid:
-
-Large global state.
-
-Server state belongs in Supabase.
-
----
-
-# Security Rules
-
-All database tables must use:
-
-Row Level Security
-
-Players can:
-
-Read their own monsters
-
-Modify their own monsters
-
-Players cannot:
-
-Modify another user's data
-
----
-
-# MVP Exclusions
-
-Do NOT build:
-
-❌ Trading
-
-❌ Guilds
-
-❌ Breeding
-
-❌ PvP matchmaking
-
-❌ Marketplace
-
-❌ Real-time battles
-
-❌ Complex animations
-
-These are future updates.
-
----
-
-# MVP Success Criteria
-
-A user should be able to:
-
-✅ Create account
-
-✅ Pick starter monster
-
-✅ Explore
-
-✅ Encounter monster
-
-✅ Capture monster
-
-✅ View collection
-
-✅ Train monster
-
-✅ Battle basic AI enemy
-
-✅ Level up
-
-✅ Return daily
-
----
-
-# Development Priority
-
-Build in this order:
-
-1. Authentication
-
-2. Database schema
-
-3. Player profile
-
-4. Starter selection
-
-5. Monster collection
-
-6. Exploration system
-
-7. Capture system
-
-8. Training
-
-9. Battle
-
-10. Polish UI
+The MVP requires minimal images — icons, emoji, SVG shapes, gradient/glow cards, stat bars. This is followed throughout (`ELEMENT_EMOJI` placeholders, no monster artwork pipeline). Keep new UI consistent with this: no large image assets, no animated battle scenes.
 
 ---
 
 # Design Direction
 
-Style:
+Dark fantasy mobile RPG: dark backgrounds (`COLORS.background = #0c0d16`), glowing/bordered cards, rounded corners, large readable text. Element colors (fire/ice/water/nature/shadow) and rarity colors (common→legendary) are defined in `src/constants/theme.ts` — reuse these constants rather than hardcoding new hex values.
 
-Dark fantasy mobile RPG.
+---
 
-Use:
+# Security
 
-- Dark backgrounds
-- Glowing cards
-- Rounded corners
-- Large readable text
-- RPG-inspired UI
+- Every table has RLS enabled — verify this holds for any new table (`get_advisors` after migrating).
+- Anything that mutates gold, energy, XP, stats, or capture/battle outcomes must go through a Postgres RPC that re-derives values server-side (see the RPC pattern above); never trust client-computed values for these fields.
+- `players` has no client-facing INSERT policy — rows are created only by the `auth.users` trigger.
 
-The game should feel premium while requiring minimal graphical assets.
+---
+
+# Out of scope (still true)
+
+Trading, guilds, breeding, PvP matchmaking, marketplace, real-time multiplayer battles, complex animations. These remain explicitly excluded from the current build.
+
+---
+
+# Current Status / Suggested Next Steps
+
+Already working: auth, onboarding, starter selection, exploration, capture, collection view, training, single-player battle with rewards and leveling.
+
+Gaps worth knowing about before extending the game (not commitments, just the honest state):
+- Profile screen is a stub.
+- No energy regeneration over time.
+- No attacks/moves or traits system — combat is a single "Attack" action with no differentiation between Wobblins beyond raw stats.
+- No collection filters (element/rarity).
+- No "set active/featured Wobblin" — it's always the oldest one owned.
+- Avatar chosen at character creation isn't persisted.
+- Login/signup copy still says "Monster Realms" in a couple of places — a cosmetic leftover from an earlier project name; the product, package, schema, and routes are all "Wobblins" now.

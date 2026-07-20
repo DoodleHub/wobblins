@@ -1,9 +1,12 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
-import { ELEMENT_CLASSNAMES, type Element, RARITY_CLASSNAMES, type Rarity } from "@/constants/theme";
+import { EmptyState } from "@/components/EmptyState";
+import { LoadingScreen } from "@/components/LoadingScreen";
+import { MonsterCard } from "@/components/MonsterCard";
+import type { Element, Rarity } from "@/constants/theme";
 import { useCreateStarterWobblin, useStarterSpecies } from "@/hooks/useWobblins";
 import { useSupabase } from "@/supabase/SupabaseProvider";
 import type { WobblinSpecies } from "@/supabase/wobblins";
@@ -38,6 +41,10 @@ export default function StarterSelectionScreen() {
     });
   };
 
+  if (speciesPending) {
+    return <LoadingScreen message="Loading starters…" />;
+  }
+
   return (
     <ScrollView
       className="flex-1 bg-background"
@@ -50,10 +57,12 @@ export default function StarterSelectionScreen() {
         </Text>
       </View>
 
-      {speciesPending ? (
-        <View className="items-center py-12">
-          <ActivityIndicator color="#4f46e5" />
-        </View>
+      {species && species.length === 0 ? (
+        <EmptyState
+          icon="🥚"
+          title="No starters available"
+          description="Check back soon — the world is still hatching."
+        />
       ) : (
         <View className="gap-4">
           {species?.map((option) => (
@@ -91,42 +100,16 @@ function StarterCard({
 }) {
   const element = species.element.toLowerCase() as Element;
   const rarity = species.rarity.toLowerCase() as Rarity;
-  const elementClasses = ELEMENT_CLASSNAMES[element];
-  const rarityClasses = RARITY_CLASSNAMES[rarity];
 
   return (
-    <Pressable
-      onPress={onPress}
-      className={`gap-3 rounded-2xl border p-4 ${
-        selected ? "border-primary bg-primary-light" : "border-border bg-surface"
-      }`}
-    >
-      <View className="flex-row items-center justify-between">
-        <Text className="font-display-bold text-xl text-text">{species.name}</Text>
-        {rarityClasses && (
-          <View className={`rounded-full border bg-surface px-2.5 py-1 ${rarityClasses.border}`}>
-            <Text className={`font-sans-semibold text-xs capitalize ${rarityClasses.text}`}>
-              {species.rarity}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {elementClasses && (
-        <View className={`self-start rounded-full border bg-surface px-2.5 py-1 ${elementClasses.border}`}>
-          <Text className={`font-sans-semibold text-xs capitalize ${elementClasses.text}`}>
-            {species.element}
-          </Text>
-        </View>
-      )}
-
-      <View className="flex-row flex-wrap gap-4">
+    <MonsterCard name={species.name} element={element} rarity={rarity} layout="center" selected={selected} onPress={onPress}>
+      <View className="flex-row flex-wrap justify-center gap-4">
         <Stat label="HP" value={species.base_hp} className="text-hp" />
         <Stat label="Attack" value={species.base_attack} />
         <Stat label="Defense" value={species.base_defense} />
         <Stat label="Speed" value={species.base_speed} />
       </View>
-    </Pressable>
+    </MonsterCard>
   );
 }
 
@@ -140,7 +123,7 @@ function Stat({
   className?: string;
 }) {
   return (
-    <View className="gap-0.5">
+    <View className="items-center gap-0.5">
       <Text className="font-sans text-xs text-text-subtle">{label}</Text>
       <Text className={`font-sans-bold text-base ${className}`}>{value}</Text>
     </View>

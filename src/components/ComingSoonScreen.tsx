@@ -1,7 +1,8 @@
 import { useRouter } from "expo-router";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 
 import { Button } from "./Button";
+import { EmptyState } from "./EmptyState";
 
 type ComingSoonScreenProps = {
   icon: string;
@@ -13,11 +14,13 @@ export function ComingSoonScreen({ icon, title, description }: ComingSoonScreenP
   const router = useRouter();
 
   return (
-    <View className="flex-1 items-center justify-center gap-4 bg-background px-8">
-      <Text className="text-5xl">{icon}</Text>
-      <Text className="font-display-bold text-2xl text-text">{title}</Text>
-      <Text className="text-center font-sans text-base text-text-muted">{description}</Text>
-      <Button label="Back to Home" variant="secondary" onPress={() => router.replace("/")} />
+    <View className="flex-1 items-center justify-center bg-background px-8">
+      <EmptyState
+        icon={icon}
+        title={title}
+        description={description}
+        action={<Button label="Back to Home" variant="secondary" onPress={() => router.replace("/")} />}
+      />
     </View>
   );
 }

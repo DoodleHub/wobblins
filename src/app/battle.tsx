@@ -1,12 +1,13 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
 import { LevelUpBanner } from "@/components/LevelUpBanner";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { StatBar } from "@/components/StatBar";
 import { XPBar } from "@/components/XPBar";
-import { COLORS, ELEMENT_EMOJI, type Element } from "@/constants/theme";
+import { COLORS, ELEMENT_COLORS, ELEMENT_EMOJI, type Element } from "@/constants/theme";
 import { useResolveBattle } from "@/hooks/useBattle";
 import { useWobblin } from "@/hooks/useWobblins";
 import { useSupabase } from "@/supabase/SupabaseProvider";
@@ -84,11 +85,7 @@ export default function BattleScreen() {
   const loadError = wobblinError ?? battleMutation.error;
 
   if (loading) {
-    return (
-      <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator color={COLORS.primary} />
-      </View>
-    );
+    return <LoadingScreen message="Preparing battle…" />;
   }
 
   if (loadError || !wobblin || !battleResult) {
@@ -119,7 +116,7 @@ export default function BattleScreen() {
         <Combatant
           name={playerName}
           level={wobblin.level}
-          emoji={ELEMENT_EMOJI[playerElement]}
+          element={playerElement}
           hp={playerHp}
           maxHp={battleResult.player_max_hp}
           xp={{ experience: wobblin.experience, onLevelUp: setLevelUp }}
@@ -128,7 +125,7 @@ export default function BattleScreen() {
         <Combatant
           name={battleResult.enemy.name}
           level={wobblin.level}
-          emoji={ELEMENT_EMOJI[enemyElement]}
+          element={enemyElement}
           hp={enemyHp}
           maxHp={battleResult.enemy.max_hp}
         />
@@ -179,22 +176,39 @@ export default function BattleScreen() {
 function Combatant({
   name,
   level,
-  emoji,
+  element,
   hp,
   maxHp,
   xp,
 }: {
   name: string;
   level: number;
-  emoji: string;
+  element: Element;
   hp: number;
   maxHp: number;
   xp?: { experience: number; onLevelUp?: (level: number) => void };
 }) {
+  const elementColor = ELEMENT_COLORS[element];
+
   return (
-    <View className="flex-1 gap-2 rounded-2xl border border-border bg-surface p-3">
+    <View
+      className="flex-1 gap-2 rounded-2xl border bg-surface p-3"
+      style={{
+        borderColor: COLORS.border,
+        shadowColor: elementColor,
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 0 },
+        elevation: 3,
+      }}
+    >
       <View className="items-center gap-1">
-        <Text className="text-4xl">{emoji}</Text>
+        <View
+          className="h-14 w-14 items-center justify-center rounded-full border bg-background"
+          style={{ borderColor: `${elementColor}66` }}
+        >
+          <Text className="text-3xl">{ELEMENT_EMOJI[element]}</Text>
+        </View>
         <Text className="font-display-bold text-sm text-text" numberOfLines={1}>
           {name}
         </Text>

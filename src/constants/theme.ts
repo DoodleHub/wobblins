@@ -9,7 +9,10 @@
  *   - native APIs that take raw colors (StatusBar, SVG fill, icon props)
  *
  * Prefer the `bg-*` / `text-*` / `border-*` utility classes directly
- * whenever the value isn't data-driven.
+ * whenever the value isn't data-driven. Element and rarity colors are
+ * intentionally hex-only (no Tailwind class map) — they're always applied
+ * via inline `style`, since `TraitBadge` and `MonsterCard` tint dynamically
+ * from data rather than a fixed set of class names.
  */
 
 export type Element = "fire" | "ice" | "water" | "nature" | "shadow";
@@ -17,69 +20,37 @@ export type Element = "fire" | "ice" | "water" | "nature" | "shadow";
 export type Rarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
 
 export const COLORS = {
-  background: "#f4f5fa",
-  surface: "#ffffff",
-  surfaceRaised: "#ffffff",
-  border: "#e1e3ef",
+  background: "#0c0d16",
+  surface: "#171a28",
+  surfaceRaised: "#1f2236",
+  border: "#2c2f45",
 
-  text: "#12131c",
-  textMuted: "#585b72",
-  textSubtle: "#8a8da3",
+  text: "#f5f5fa",
+  textMuted: "#a4a7c1",
+  textSubtle: "#6b6e8a",
 
-  primary: "#4f46e5",
-  primaryDark: "#4338ca",
-  primaryLight: "#e0e7ff",
-  secondary: "#84cc16",
+  primary: "#6366f1",
+  primaryDark: "#a5b4fc",
+  primaryLight: "#23264a",
+  secondary: "#a3e635",
   secondaryDark: "#4d7c0f",
 
-  success: "#16a34a",
-  warning: "#d97706",
-  danger: "#dc2626",
+  success: "#4ade80",
+  warning: "#f59e0b",
+  danger: "#f87171",
 
-  gold: "#b45309",
-  energy: "#0284c7",
-  hp: "#dc2626",
-  xp: "#7c3aed",
+  gold: "#fbbf24",
+  energy: "#38bdf8",
+  hp: "#f87171",
+  xp: "#c084fc",
 } as const;
 
 export const ELEMENT_COLORS: Record<Element, string> = {
-  fire: "#ea580c",
-  ice: "#0891b2",
-  water: "#1d4ed8",
-  nature: "#15803d",
-  shadow: "#6b21a8",
-};
-
-/** Tailwind class names for element accents, keyed for dynamic lookup. */
-export const ELEMENT_CLASSNAMES: Record<
-  Element,
-  { bg: string; text: string; border: string }
-> = {
-  fire: {
-    bg: "bg-element-fire",
-    text: "text-element-fire",
-    border: "border-element-fire",
-  },
-  ice: {
-    bg: "bg-element-ice",
-    text: "text-element-ice",
-    border: "border-element-ice",
-  },
-  water: {
-    bg: "bg-element-water",
-    text: "text-element-water",
-    border: "border-element-water",
-  },
-  nature: {
-    bg: "bg-element-nature",
-    text: "text-element-nature",
-    border: "border-element-nature",
-  },
-  shadow: {
-    bg: "bg-element-shadow",
-    text: "text-element-shadow",
-    border: "border-element-shadow",
-  },
+  fire: "#fb923c",
+  ice: "#22d3ee",
+  water: "#60a5fa",
+  nature: "#4ade80",
+  shadow: "#a78bfa",
 };
 
 /** Placeholder emoji art for each element, used where a monster image would go. */
@@ -92,43 +63,11 @@ export const ELEMENT_EMOJI: Record<Element, string> = {
 };
 
 export const RARITY_COLORS: Record<Rarity, string> = {
-  common: "#6b7280",
-  uncommon: "#16a34a",
-  rare: "#2563eb",
-  epic: "#9333ea",
-  legendary: "#c2410c",
-};
-
-/** Tailwind class names for rarity accents, keyed for dynamic lookup. */
-export const RARITY_CLASSNAMES: Record<
-  Rarity,
-  { bg: string; text: string; border: string }
-> = {
-  common: {
-    bg: "bg-rarity-common",
-    text: "text-rarity-common",
-    border: "border-rarity-common",
-  },
-  uncommon: {
-    bg: "bg-rarity-uncommon",
-    text: "text-rarity-uncommon",
-    border: "border-rarity-uncommon",
-  },
-  rare: {
-    bg: "bg-rarity-rare",
-    text: "text-rarity-rare",
-    border: "border-rarity-rare",
-  },
-  epic: {
-    bg: "bg-rarity-epic",
-    text: "text-rarity-epic",
-    border: "border-rarity-epic",
-  },
-  legendary: {
-    bg: "bg-rarity-legendary",
-    text: "text-rarity-legendary",
-    border: "border-rarity-legendary",
-  },
+  common: "#9ca3af",
+  uncommon: "#4ade80",
+  rare: "#38bdf8",
+  epic: "#c084fc",
+  legendary: "#f59e0b",
 };
 
 /** Font family class names, matching the weights loaded in `_layout.tsx`. */

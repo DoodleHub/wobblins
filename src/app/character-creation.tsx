@@ -91,6 +91,7 @@ export default function CharacterCreationScreen() {
                     className={`flex-1 items-center gap-1.5 rounded-2xl border p-4 ${
                       selected ? "border-primary bg-primary-light" : "border-border bg-surface"
                     }`}
+                    style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.97 : 1 }] })}
                   >
                     <Text className="text-3xl">{option.icon}</Text>
                     <Text

@@ -1,7 +1,8 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ActivityIndicator, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { StatBar } from "@/components/StatBar";
 import { COLORS } from "@/constants/theme";
 import { useTrainWobblin } from "@/hooks/useTraining";
@@ -26,11 +27,7 @@ export default function TrainingScreen() {
   const trainMutation = useTrainWobblin(id, playerId);
 
   if (isPending) {
-    return (
-      <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator color={COLORS.primary} />
-      </View>
-    );
+    return <LoadingScreen message="Loading Wobblin…" />;
   }
 
   if (loadError || !wobblin) {

@@ -1,12 +1,15 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
+import { EmptyState } from "@/components/EmptyState";
 import { LevelUpBanner } from "@/components/LevelUpBanner";
+import { MonsterCard } from "@/components/MonsterCard";
+import { Skeleton } from "@/components/Skeleton";
 import { StatBar } from "@/components/StatBar";
 import { XPBar } from "@/components/XPBar";
-import { COLORS, ELEMENT_CLASSNAMES, ELEMENT_EMOJI, type Element } from "@/constants/theme";
+import { COLORS, type Element, type Rarity } from "@/constants/theme";
 import { usePlayer } from "@/hooks/usePlayer";
 import { useFeaturedWobblin } from "@/hooks/useWobblins";
 import type { Player } from "@/supabase/players";
@@ -40,13 +43,13 @@ export default function HomeScreen() {
         contentContainerClassName="w-full min-w-0 flex-grow gap-6 px-6 pb-8 pt-16"
       >
         {loading || !player ? (
-          <View className="flex-1 items-center justify-center py-24">
-            {error ? (
+          error ? (
+            <View className="flex-1 items-center justify-center py-24">
               <Text className="font-sans-medium text-sm text-danger">{error}</Text>
-            ) : (
-              <ActivityIndicator color={COLORS.primary} />
-            )}
-          </View>
+            </View>
+          ) : (
+            <HomeSkeleton />
+          )
         ) : (
           <>
             <PlayerHeader player={player} onLevelUp={setLevelUp} />
@@ -97,48 +100,30 @@ function FeaturedWobblinCard({
 
   if (!featured) {
     return (
-      <View className="items-center gap-3 rounded-2xl border border-border bg-surface p-6">
-        <Text className="text-4xl">🥚</Text>
-        <Text className="font-display-bold text-lg text-text">No Wobblin yet</Text>
-        <Text className="text-center font-sans text-sm text-text-muted">
-          Choose your starter to begin your journey.
-        </Text>
-        <Button label="Choose Starter" onPress={() => router.push("/starter-selection")} />
+      <View className="rounded-2xl border border-border bg-surface">
+        <EmptyState
+          icon="🥚"
+          title="No Wobblin yet"
+          description="Choose your starter to begin your journey."
+          action={<Button label="Choose Starter" onPress={() => router.push("/starter-selection")} />}
+        />
       </View>
     );
   }
 
   const element = featured.species.element.toLowerCase() as Element;
-  const elementClasses = ELEMENT_CLASSNAMES[element];
-  const emoji = ELEMENT_EMOJI[element];
+  const rarity = featured.species.rarity.toLowerCase() as Rarity;
   const name = featured.nickname ?? featured.species.name;
 
   return (
-    <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
-      <Text className="font-display text-sm uppercase tracking-wide text-text-muted">
-        Active Wobblin
-      </Text>
-
-      <View className="flex-row items-center gap-4">
-        <View
-          className={`h-20 w-20 items-center justify-center rounded-full border bg-background ${elementClasses?.border ?? "border-border"}`}
-        >
-          <Text className="text-4xl">{emoji}</Text>
-        </View>
-
-        <View className="flex-1 gap-1">
-          <Text className="font-display-bold text-xl text-text">{name}</Text>
-          <Text className="font-sans-medium text-sm text-text-muted">Level {featured.level}</Text>
-          {elementClasses && (
-            <View className={`self-start rounded-full border bg-surface px-2.5 py-1 ${elementClasses.border}`}>
-              <Text className={`font-sans-semibold text-xs capitalize ${elementClasses.text}`}>
-                {featured.species.element}
-              </Text>
-            </View>
-          )}
-        </View>
-      </View>
-
+    <MonsterCard
+      name={name}
+      level={featured.level}
+      element={element}
+      rarity={rarity}
+      eyebrow="Active Wobblin"
+      onPress={() => router.push(`/wobblin/${featured.id}`)}
+    >
       <StatBar label="HP" value={featured.hp} max={featured.hp} color={COLORS.hp} />
       <XPBar level={featured.level} experience={featured.experience} onLevelUp={onLevelUp} />
 
@@ -147,7 +132,7 @@ function FeaturedWobblinCard({
         <Stat label="Defense" value={String(featured.defense)} className="text-text" />
         <Stat label="Speed" value={String(featured.speed)} className="text-text" />
       </View>
-    </View>
+    </MonsterCard>
   );
 }
 
@@ -170,5 +155,32 @@ function Stat({
         <Text className={`font-sans-bold text-base ${className}`}>{value}</Text>
       </View>
     </View>
+  );
+}
+
+function HomeSkeleton() {
+  return (
+    <>
+      <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
+        <View className="flex-row items-center justify-between">
+          <View className="gap-2">
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-3 w-16" />
+          </View>
+          <Skeleton className="h-12 w-12 rounded-full" />
+        </View>
+        <Skeleton className="h-2 w-full rounded-full" />
+      </View>
+      <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
+        <View className="flex-row items-center gap-4">
+          <Skeleton className="h-20 w-20 rounded-full" />
+          <View className="flex-1 gap-2">
+            <Skeleton className="h-5 w-28" />
+            <Skeleton className="h-3 w-16" />
+          </View>
+        </View>
+        <Skeleton className="h-2 w-full rounded-full" />
+      </View>
+    </>
   );
 }
