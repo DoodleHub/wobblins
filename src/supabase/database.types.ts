@@ -14,6 +14,24 @@ export type Database = {
   };
   public: {
     Tables: {
+      locations: {
+        Row: {
+          energy_cost: number;
+          id: string;
+          name: string;
+        };
+        Insert: {
+          energy_cost: number;
+          id?: string;
+          name: string;
+        };
+        Update: {
+          energy_cost?: number;
+          id?: string;
+          name?: string;
+        };
+        Relationships: [];
+      };
       player_wobblins: {
         Row: {
           attack: number;
@@ -27,6 +45,7 @@ export type Database = {
           player_id: string;
           species_id: string;
           speed: number;
+          training_points: number;
         };
         Insert: {
           attack: number;
@@ -40,6 +59,7 @@ export type Database = {
           player_id: string;
           species_id: string;
           speed: number;
+          training_points?: number;
         };
         Update: {
           attack?: number;
@@ -53,6 +73,7 @@ export type Database = {
           player_id?: string;
           species_id?: string;
           speed?: number;
+          training_points?: number;
         };
         Relationships: [
           {
@@ -145,7 +166,52 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      capture_wobblin: {
+        Args: { p_species_id: string };
+        Returns: {
+          attack: number;
+          created_at: string;
+          defense: number;
+          experience: number;
+          hp: number;
+          id: string;
+          level: number;
+          nickname: string | null;
+          player_id: string;
+          species_id: string;
+          speed: number;
+          training_points: number;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "player_wobblins";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      train_wobblin: {
+        Args: { p_player_wobblin_id: string; p_training_option: string };
+        Returns: {
+          attack: number;
+          created_at: string;
+          defense: number;
+          experience: number;
+          hp: number;
+          id: string;
+          level: number;
+          nickname: string | null;
+          player_id: string;
+          species_id: string;
+          speed: number;
+          training_points: number;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "player_wobblins";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
     };
     Enums: {
       [_ in never]: never;
