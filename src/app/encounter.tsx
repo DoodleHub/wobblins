@@ -48,7 +48,7 @@ export default function EncounterScreen() {
     setError(null);
 
     try {
-      const result = await captureWobblin(playerId, { name: params.name, rarity: params.rarity });
+      const result = await captureWobblin(params.name);
       setOutcome(result.success ? "success" : "failure");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

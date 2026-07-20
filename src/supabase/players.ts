@@ -10,14 +10,14 @@ export async function getPlayer(playerId: string) {
   return data;
 }
 
-/** Deducts energy after an exploration. Assumes the caller already checked the player can afford it. */
-export async function spendEnergy(playerId: string, amount: number, currentEnergy: number) {
-  const { data, error } = await supabase
-    .from("players")
-    .update({ energy: currentEnergy - amount })
-    .eq("id", playerId)
-    .select()
-    .single();
+/**
+ * Deducts energy for an exploration via the `spend_energy` RPC. The cost is
+ * looked up server-side from the location id (not trusted from the client),
+ * and the balance check is enforced there too, so a tampered client can't
+ * explore for free or claim an arbitrary refund.
+ */
+export async function spendEnergyForLocation(locationId: string) {
+  const { data, error } = await supabase.rpc("spend_energy", { p_location_id: locationId });
 
   if (error) throw error;
   return data;

@@ -218,6 +218,7 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      attempt_capture: { Args: { p_species_name: string }; Returns: Json };
       capture_wobblin: {
         Args: { p_species_id: string };
         Returns: {
@@ -242,6 +243,25 @@ export type Database = {
         };
       };
       resolve_battle: { Args: { p_wobblin_id: string }; Returns: Json };
+      spend_energy: {
+        Args: { p_location_id: string };
+        Returns: {
+          created_at: string;
+          energy: number;
+          experience: number;
+          gold: number;
+          id: string;
+          level: number;
+          onboarding_completed: boolean;
+          username: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "players";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       start_battle: {
         Args: { p_enemy_species_id: string; p_wobblin_id: string };
         Returns: Json;

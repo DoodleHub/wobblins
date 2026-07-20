@@ -5,7 +5,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-nati
 import { LOCATIONS, rollEncounter, type ExploreLocation } from "@/constants/locations";
 import { COLORS } from "@/constants/theme";
 import type { Player } from "@/supabase/players";
-import { getPlayer, spendEnergy } from "@/supabase/players";
+import { getPlayer, spendEnergyForLocation } from "@/supabase/players";
 import { useSupabase } from "@/supabase/SupabaseProvider";
 
 export default function ExploreScreen() {
@@ -39,7 +39,7 @@ export default function ExploreScreen() {
     setExploringId(location.id);
 
     try {
-      const updated = await spendEnergy(playerId, location.energyCost, player.energy);
+      const updated = await spendEnergyForLocation(location.id);
       setPlayer(updated);
 
       const species = rollEncounter(location);
