@@ -1,3 +1,5 @@
+import type { Rarity } from "@/constants/theme";
+
 import { supabase } from "./client";
 import type { Tables } from "./database.types";
 
@@ -68,4 +70,63 @@ export function createStarterWobblin(playerId: string, species: WobblinSpecies) 
     defense: species.base_defense,
     speed: species.base_speed,
   });
+}
+
+/** How many percentage points rarer Wobblins subtract from the base capture chance. */
+const RARITY_CAPTURE_PENALTY: Record<Rarity, number> = {
+  common: 0,
+  uncommon: 10,
+  rare: 25,
+  epic: 40,
+  legendary: 55,
+};
+
+const BASE_CAPTURE_CHANCE = 90;
+const MIN_CAPTURE_CHANCE = 10;
+
+/** Odds (0-100) of successfully capturing a wild Wobblin of the given rarity. */
+export function getCaptureChance(rarity: Rarity) {
+  return Math.max(MIN_CAPTURE_CHANCE, BASE_CAPTURE_CHANCE - RARITY_CAPTURE_PENALTY[rarity]);
+}
+
+export type CaptureResult = { success: true; wobblin: PlayerWobblin } | { success: false };
+
+/**
+ * Rolls the capture chance for a wild Wobblin encountered while exploring, and
+ * on success adds it to the player's collection. Wild species are matched by
+ * name against `wobblin_species` (seeded to mirror the hardcoded encounter
+ * table in `constants/locations.ts`).
+ */
+export async function captureWobblin(
+  playerId: string,
+  encounter: { name: string; rarity: Rarity },
+): Promise<CaptureResult> {
+  const roll = Math.random() * 100;
+  if (roll >= getCaptureChance(encounter.rarity)) {
+    return { success: false };
+  }
+
+  const { data: species, error: speciesError } = await supabase
+    .from("wobblin_species")
+    .select("*")
+    .eq("name", encounter.name)
+    .single();
+
+  if (speciesError) throw speciesError;
+
+  const { data, error } = await supabase
+    .from("player_wobblins")
+    .insert({
+      player_id: playerId,
+      species_id: species.id,
+      hp: species.base_hp,
+      attack: species.base_attack,
+      defense: species.base_defense,
+      speed: species.base_speed,
+    })
+    .select("*, species:wobblin_species(*)")
+    .single();
+
+  if (error) throw error;
+  return { success: true, wobblin: data as PlayerWobblin };
 }

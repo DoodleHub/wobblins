@@ -1,4 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useState } from "react";
 import { Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
@@ -9,9 +10,16 @@ import {
   type Element,
   type Rarity,
 } from "@/constants/theme";
+import { useSupabase } from "@/supabase/SupabaseProvider";
+import { captureWobblin } from "@/supabase/wobblins";
+
+type CaptureOutcome = "success" | "failure";
 
 export default function EncounterScreen() {
   const router = useRouter();
+  const { session } = useSupabase();
+  const playerId = session?.user.id;
+
   const params = useLocalSearchParams<{
     name: string;
     element: Element;
@@ -22,9 +30,32 @@ export default function EncounterScreen() {
     base_speed: string;
   }>();
 
+  const [capturing, setCapturing] = useState(false);
+  const [outcome, setOutcome] = useState<CaptureOutcome | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
   const elementClasses = ELEMENT_CLASSNAMES[params.element];
   const rarityClasses = RARITY_CLASSNAMES[params.rarity];
   const emoji = ELEMENT_EMOJI[params.element];
+
+  const onCapture = async () => {
+    if (!playerId) {
+      setError("Your session expired. Please log in again.");
+      return;
+    }
+
+    setCapturing(true);
+    setError(null);
+
+    try {
+      const result = await captureWobblin(playerId, { name: params.name, rarity: params.rarity });
+      setOutcome(result.success ? "success" : "failure");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCapturing(false);
+    }
+  };
 
   return (
     <View className="flex-1 items-center justify-center gap-6 bg-background px-8">
@@ -52,7 +83,36 @@ export default function EncounterScreen() {
         <Stat label="Speed" value={Number(params.base_speed)} />
       </View>
 
-      <Button label="Continue Exploring" onPress={() => router.back()} />
+      {outcome === "success" && (
+        <View className="w-full rounded-xl border border-success/30 bg-success/10 px-4 py-3">
+          <Text className="text-center font-sans-medium text-sm text-success">
+            Gotcha! {params.name} was added to your collection.
+          </Text>
+        </View>
+      )}
+
+      {outcome === "failure" && (
+        <View className="w-full rounded-xl border border-warning/30 bg-warning/10 px-4 py-3">
+          <Text className="text-center font-sans-medium text-sm text-warning">
+            {params.name} broke free! Try again or move on.
+          </Text>
+        </View>
+      )}
+
+      {error && (
+        <View className="w-full rounded-xl border border-danger/30 bg-danger/10 px-4 py-3">
+          <Text className="text-center font-sans-medium text-sm text-danger">{error}</Text>
+        </View>
+      )}
+
+      {outcome === "success" ? (
+        <Button label="Continue Exploring" onPress={() => router.back()} />
+      ) : (
+        <View className="w-full gap-3">
+          <Button label="Capture" onPress={onCapture} loading={capturing} />
+          <Button label="Run" variant="secondary" onPress={() => router.back()} disabled={capturing} />
+        </View>
+      )}
     </View>
   );
 }
