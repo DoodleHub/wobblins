@@ -10,6 +10,7 @@ import {
   type WobblinSpecies,
 } from "@/supabase/wobblins";
 
+import { useCheckAchievements } from "./useAchievements";
 import { queryKeys } from "./queryKeys";
 
 export function useFeaturedWobblin(playerId: string | undefined) {
@@ -45,18 +46,28 @@ export function useStarterSpecies() {
   });
 }
 
+/**
+ * Also re-checks achievement progress on a successful capture (Wobblins-owned
+ * achievements). The `checkAchievements` mutation is returned alongside the
+ * capture mutation so the caller can read `checkAchievements.data?.unlocked`
+ * to show an unlock toast once it resolves.
+ */
 export function useCaptureWobblin(playerId: string | undefined) {
   const queryClient = useQueryClient();
+  const checkAchievements = useCheckAchievements(playerId);
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: (speciesName: string) => captureWobblin(speciesName),
     onSuccess: (result) => {
       if (result.success) {
         queryClient.invalidateQueries({ queryKey: queryKeys.playerWobblins(playerId) });
         queryClient.invalidateQueries({ queryKey: queryKeys.featuredWobblin(playerId) });
+        checkAchievements.mutate();
       }
     },
   });
+
+  return Object.assign(mutation, { checkAchievements });
 }
 
 export function useCreateStarterWobblin(playerId: string | undefined) {

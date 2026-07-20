@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/refs -- Animated.Value held in useRef is the standard RN pattern; it's a mutable animation handle, not a component ref, and reading it during render is how Animated interpolation works. */
 import { useEffect, useRef } from "react";
 import { Animated, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "@/components/Icon";
 import { COLORS } from "@/constants/theme";
@@ -13,6 +14,7 @@ type LevelUpBannerProps = {
 
 /** A brief celebratory toast that pops in, holds, then fades — driven purely by `level` changing. */
 export function LevelUpBanner({ level, label = "Level Up!" }: LevelUpBannerProps) {
+  const insets = useSafeAreaInsets();
   const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -34,7 +36,7 @@ export function LevelUpBanner({ level, label = "Level Up!" }: LevelUpBannerProps
     <View
       pointerEvents="none"
       className="absolute inset-x-0 items-center"
-      style={{ top: 8, zIndex: 50 }}
+      style={{ top: insets.top + 8, zIndex: 50 }}
     >
       <Animated.View
         className="items-center gap-1 rounded-2xl border border-xp/40 bg-surface px-5 py-3 shadow-lg"

@@ -1,15 +1,17 @@
 /* eslint-disable react-hooks/refs -- Animated.Value held in useRef is the standard RN pattern; it's a mutable animation handle, not a component ref, and reading it during render is how Animated interpolation works. */
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
 import { Icon } from "@/components/Icon";
+import { RewardToast } from "@/components/RewardToast";
 import { TraitBadge } from "@/components/TraitBadge";
 import { ELEMENT_COLORS, ELEMENT_ICON, RARITY_COLORS, type Element, type Rarity } from "@/constants/theme";
 import { useCaptureWobblin } from "@/hooks/useWobblins";
 import { useSupabase } from "@/supabase/SupabaseProvider";
 import { getErrorMessage } from "@/utils/errors";
+import { achievementsToReward } from "@/utils/rewardToast";
 
 type CaptureOutcome = "success" | "failure";
 
@@ -31,6 +33,11 @@ export default function EncounterScreen() {
   const captureMutation = useCaptureWobblin(playerId);
   const [outcome, setOutcome] = useState<CaptureOutcome | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const achievementReward = useMemo(
+    () => achievementsToReward(captureMutation.checkAchievements.data?.unlocked ?? []),
+    [captureMutation.checkAchievements.data],
+  );
 
   const elementColor = ELEMENT_COLORS[params.element];
   const rarityColor = RARITY_COLORS[params.rarity];
@@ -67,6 +74,7 @@ export default function EncounterScreen() {
 
   return (
     <View className="flex-1 items-center justify-center gap-6 bg-background px-8">
+      <RewardToast reward={achievementReward} />
       <Text className="font-display text-sm uppercase tracking-wide text-text-muted">
         A wild Wobblin appeared!
       </Text>

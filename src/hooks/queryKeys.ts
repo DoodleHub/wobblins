@@ -5,4 +5,6 @@ export const queryKeys = {
   playerWobblins: (playerId: string | undefined) => ["playerWobblins", playerId] as const,
   wobblin: (id: string | undefined) => ["wobblin", id] as const,
   starterSpecies: () => ["starterSpecies"] as const,
+  achievements: () => ["achievements"] as const,
+  playerAchievements: (playerId: string | undefined) => ["playerAchievements", playerId] as const,
 };

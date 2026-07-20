@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
@@ -7,16 +7,19 @@ import { EmptyState } from "@/components/EmptyState";
 import { Icon, type IconSpec } from "@/components/Icon";
 import { LevelUpBanner } from "@/components/LevelUpBanner";
 import { MonsterCard } from "@/components/MonsterCard";
+import { RewardToast } from "@/components/RewardToast";
 import { Skeleton } from "@/components/Skeleton";
 import { StatBar } from "@/components/StatBar";
 import { XPBar } from "@/components/XPBar";
 import { COLORS, type Element, type Rarity } from "@/constants/theme";
+import { useClaimDailyReward } from "@/hooks/useDailyReward";
 import { usePlayer } from "@/hooks/usePlayer";
 import { useFeaturedWobblin } from "@/hooks/useWobblins";
 import type { Player } from "@/supabase/players";
 import { useSupabase } from "@/supabase/SupabaseProvider";
 import type { FeaturedWobblin } from "@/supabase/wobblins";
 import { getErrorMessage } from "@/utils/errors";
+import { dailyRewardToReward } from "@/utils/rewardToast";
 
 const ENERGY_MAX = 50;
 
@@ -33,12 +36,31 @@ export default function HomeScreen() {
 
   const [levelUp, setLevelUp] = useState<number | null>(null);
 
+  // Claim the daily login bonus once per app session. `claim_daily_reward` is
+  // idempotent per calendar day, so this is safe even if the effect somehow
+  // re-ran — the ref just avoids firing the RPC on every re-render.
+  const claimDailyReward = useClaimDailyReward(playerId);
+  const claimedRef = useRef(false);
+
+  useEffect(() => {
+    if (!playerId || claimedRef.current) return;
+    claimedRef.current = true;
+    claimDailyReward.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playerId]);
+
+  const dailyReward = useMemo(
+    () => (claimDailyReward.data ? dailyRewardToReward(claimDailyReward.data) : null),
+    [claimDailyReward.data],
+  );
+
   const loading = playerPending;
   const error = playerError ? getErrorMessage(playerError) : null;
 
   return (
     <View className="flex-1 bg-background">
       <LevelUpBanner level={levelUp} />
+      <RewardToast reward={dailyReward} offsetTop={76} />
       <ScrollView
         className="flex-1"
         contentContainerClassName="w-full min-w-0 flex-grow gap-6 px-6 pb-8 pt-16"

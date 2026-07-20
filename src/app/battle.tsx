@@ -1,11 +1,12 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
 import { Icon, type IconSpec } from "@/components/Icon";
 import { LevelUpBanner } from "@/components/LevelUpBanner";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { RewardToast } from "@/components/RewardToast";
 import { StatBar } from "@/components/StatBar";
 import { XPBar } from "@/components/XPBar";
 import { COLORS, ELEMENT_COLORS, ELEMENT_ICON, type Element } from "@/constants/theme";
@@ -13,6 +14,7 @@ import { useResolveBattle } from "@/hooks/useBattle";
 import { useWobblin } from "@/hooks/useWobblins";
 import { useSupabase } from "@/supabase/SupabaseProvider";
 import { getErrorMessage } from "@/utils/errors";
+import { achievementsToReward } from "@/utils/rewardToast";
 
 type Phase = "fighting" | "victory" | "defeat";
 
@@ -46,6 +48,10 @@ export default function BattleScreen() {
   }, [id]);
 
   const battleResult = battleMutation.data;
+  const achievementReward = useMemo(
+    () => achievementsToReward(battleMutation.checkAchievements.data?.unlocked ?? []),
+    [battleMutation.checkAchievements.data],
+  );
 
   function handleAttack() {
     if (!wobblin || !battleResult || phase !== "fighting") return;
@@ -111,6 +117,7 @@ export default function BattleScreen() {
   return (
     <View className="relative w-full min-w-0 flex-1 gap-5 bg-background px-6 pb-8 pt-16">
       <LevelUpBanner level={levelUp} label={`${playerName} leveled up!`} />
+      <RewardToast reward={achievementReward} offsetTop={76} />
       <Text className="text-center font-display-bold text-2xl text-text">Battle</Text>
 
       <View className="flex-row items-center gap-3">
