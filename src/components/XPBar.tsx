@@ -2,6 +2,7 @@
 import { useEffect, useRef } from "react";
 import { Animated, Text, View } from "react-native";
 
+import { Icon, type IconSpec } from "@/components/Icon";
 import { COLORS } from "@/constants/theme";
 import { getXpProgress } from "@/utils/xp";
 
@@ -13,6 +14,9 @@ type XPBarProps = {
   onLevelUp?: (newLevel: number) => void;
   /** Hides the "Level N" label, for contexts that already show it nearby. */
   showLevel?: boolean;
+  icon?: IconSpec;
+  /** "inline" (default) shows the value beside the label above the bar; "below" shows just the number under the bar, for hero-card layouts. */
+  valuePosition?: "inline" | "below";
 };
 
 /**
@@ -21,7 +25,15 @@ type XPBarProps = {
  * fills to 100%, snaps back to empty, and refills to the new progress —
  * a "level up" beat — instead of just jumping straight to the new percent.
  */
-export function XPBar({ level, experience, color = COLORS.xp, onLevelUp, showLevel = true }: XPBarProps) {
+export function XPBar({
+  level,
+  experience,
+  color = COLORS.xp,
+  onLevelUp,
+  showLevel = true,
+  icon,
+  valuePosition = "inline",
+}: XPBarProps) {
   const progress = getXpProgress(experience, level);
 
   const widthAnim = useRef(new Animated.Value(progress.percent)).current;
@@ -63,17 +75,20 @@ export function XPBar({ level, experience, color = COLORS.xp, onLevelUp, showLev
   });
   const glowOpacity = glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.7] });
 
+  const valueText = `${progress.xpIntoLevel}/${progress.xpForLevel}`;
+
   return (
     <View className="gap-1">
       <View className="flex-row items-center justify-between">
-        {showLevel ? (
-          <Text className="font-sans-medium text-xs text-text-muted">Level {level}</Text>
-        ) : (
-          <Text className="font-sans-medium text-xs text-text-muted">XP</Text>
-        )}
-        <Text className="font-sans-semibold text-xs text-text">
-          {progress.xpIntoLevel}/{progress.xpForLevel}
-        </Text>
+        <View className="flex-row items-center gap-1.5">
+          {icon && <Icon {...icon} size={14} color={COLORS.textMuted} />}
+          {showLevel ? (
+            <Text className="font-sans-medium text-xs text-text-muted">Level {level}</Text>
+          ) : (
+            <Text className="font-sans-medium text-xs text-text-muted">XP</Text>
+          )}
+        </View>
+        {valuePosition === "inline" && <Text className="font-sans-semibold text-xs text-text">{valueText}</Text>}
       </View>
       <View className="h-2 w-full overflow-hidden rounded-full bg-border">
         <Animated.View className="h-full rounded-full" style={{ width, backgroundColor: color }} />
@@ -83,6 +98,7 @@ export function XPBar({ level, experience, color = COLORS.xp, onLevelUp, showLev
           style={{ opacity: glowOpacity }}
         />
       </View>
+      {valuePosition === "below" && <Text className="font-sans-semibold text-sm text-text">{valueText}</Text>}
     </View>
   );
 }

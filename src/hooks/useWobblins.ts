@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   captureWobblin,
   createStarterWobblin,
+  evolveWobblin,
+  getAllSpecies,
   getFeaturedWobblin,
   getPlayerWobblinById,
   getPlayerWobblins,
@@ -37,11 +39,20 @@ export function useWobblin(id: string | undefined) {
   });
 }
 
-/** Static species list for the starter picker — rarely changes, safe to cache indefinitely. */
+/** Static stage-1 species list for the starter picker — rarely changes, safe to cache indefinitely. */
 export function useStarterSpecies() {
   return useQuery({
     queryKey: queryKeys.starterSpecies(),
     queryFn: getStarterSpecies,
+    staleTime: Infinity,
+  });
+}
+
+/** Every species across all evolution stages — used for the Collection screen's "species discovered" total. */
+export function useAllSpecies() {
+  return useQuery({
+    queryKey: queryKeys.allSpecies(),
+    queryFn: getAllSpecies,
     staleTime: Infinity,
   });
 }
@@ -76,6 +87,20 @@ export function useCreateStarterWobblin(playerId: string | undefined) {
   return useMutation({
     mutationFn: (species: WobblinSpecies) => createStarterWobblin(playerId!, species),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.playerWobblins(playerId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.featuredWobblin(playerId) });
+    },
+  });
+}
+
+/** Evolves an owned Wobblin via `evolve_wobblin` and refreshes every screen showing it. */
+export function useEvolveWobblin(playerId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (playerWobblinId: string) => evolveWobblin(playerWobblinId),
+    onSuccess: (_result, playerWobblinId) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.wobblin(playerWobblinId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.playerWobblins(playerId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.featuredWobblin(playerId) });
     },

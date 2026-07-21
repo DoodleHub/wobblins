@@ -1,4 +1,5 @@
 /* eslint-disable react-hooks/refs -- Animated.Value held in useRef is the standard RN pattern; it's a mutable animation handle, not a component ref, and reading it during render is how Animated interpolation works. */
+import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Text, View } from "react-native";
@@ -7,6 +8,7 @@ import { Button } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import { RewardToast } from "@/components/RewardToast";
 import { TraitBadge } from "@/components/TraitBadge";
+import { SPECIES_ART } from "@/constants/speciesArt";
 import { ELEMENT_COLORS, ELEMENT_ICON, RARITY_COLORS, type Element, type Rarity } from "@/constants/theme";
 import { useCaptureWobblin } from "@/hooks/useWobblins";
 import { useSupabase } from "@/supabase/SupabaseProvider";
@@ -83,7 +85,11 @@ export default function EncounterScreen() {
         className="h-28 w-28 items-center justify-center rounded-full border bg-surface"
         style={{ borderColor: `${elementColor}66`, transform: [{ scale: pulse }] }}
       >
-        <Icon {...ELEMENT_ICON[params.element]} size={52} color={elementColor} />
+        {SPECIES_ART[params.name] ? (
+          <Image source={SPECIES_ART[params.name]} style={{ width: "82%", height: "82%" }} contentFit="contain" />
+        ) : (
+          <Icon {...ELEMENT_ICON[params.element]} size={52} color={elementColor} />
+        )}
       </Animated.View>
 
       <Text className="font-display-bold text-3xl text-text">{params.name}</Text>

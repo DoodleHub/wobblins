@@ -73,7 +73,20 @@ export async function getPlayerWobblinById(id: string) {
   return data as PlayerWobblin | null;
 }
 
+/** Stage-1 (base form) species only — the starting roster shown at character creation. */
 export async function getStarterSpecies() {
+  const { data, error } = await supabase
+    .from("wobblin_species")
+    .select("*")
+    .eq("stage", 1)
+    .order("name");
+
+  if (error) throw error;
+  return data;
+}
+
+/** Every species across all evolution stages, for the Collection screen's "species discovered" total. */
+export async function getAllSpecies() {
   const { data, error } = await supabase.from("wobblin_species").select("*").order("name");
 
   if (error) throw error;
@@ -114,4 +127,25 @@ export async function captureWobblin(speciesName: string): Promise<CaptureResult
   }
 
   return { success: true, wobblin: result.wobblin };
+}
+
+export type EvolutionResult = {
+  wobblin: PlayerWobblin;
+  from_species_name: string;
+  to_species_name: string;
+};
+
+/**
+ * Evolves an owned Wobblin into its next stage via the `evolve_wobblin` RPC.
+ * Eligibility (does this species have a next stage, has the Wobblin reached
+ * the required level) and the resulting stats are both re-derived
+ * server-side — the client only ever reflects what the RPC returns.
+ */
+export async function evolveWobblin(playerWobblinId: string): Promise<EvolutionResult> {
+  const { data, error } = await supabase.rpc("evolve_wobblin", {
+    p_player_wobblin_id: playerWobblinId,
+  });
+
+  if (error) throw error;
+  return data as unknown as EvolutionResult;
 }

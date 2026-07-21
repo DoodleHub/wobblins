@@ -63,7 +63,7 @@ export default function ProfileScreen() {
   return (
     <ScrollView
       className="flex-1 bg-background"
-      contentContainerClassName="w-full min-w-0 flex-grow gap-6 px-6 pb-8 pt-16"
+      contentContainerClassName="w-full min-w-0 flex-grow gap-6 px-6 pb-32 pt-16"
     >
       <View className="items-center gap-3 rounded-2xl border border-border bg-surface p-6">
         <View className="h-20 w-20 items-center justify-center rounded-full border border-primary/40 bg-primary-light">

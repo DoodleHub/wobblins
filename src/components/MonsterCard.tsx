@@ -1,4 +1,5 @@
 /* eslint-disable react-hooks/refs -- Animated.Value held in useRef is the standard RN pattern; it's a mutable animation handle, not a component ref, and reading it during render is how Animated interpolation works. */
+import { Image } from "expo-image";
 import { useEffect, useRef, type ReactNode } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
 
@@ -12,6 +13,8 @@ type MonsterCardProps = {
   level?: number;
   element: Element;
   rarity?: Rarity;
+  /** Illustrated portrait from `SPECIES_ART`, shown instead of the element icon when available. */
+  art?: number;
   /** "row" for compact list items, "center" for a larger hero presentation. */
   layout?: "row" | "center";
   selected?: boolean;
@@ -26,6 +29,7 @@ export function MonsterCard({
   level,
   element,
   rarity,
+  art,
   layout = "row",
   selected = false,
   eyebrow,
@@ -53,7 +57,11 @@ export function MonsterCard({
       className={`items-center justify-center rounded-full border bg-background ${isCenter ? "h-20 w-20" : "h-14 w-14"}`}
       style={{ borderColor: `${elementColor}66` }}
     >
-      <Icon {...ELEMENT_ICON[element]} size={isCenter ? 32 : 22} color={elementColor} />
+      {art ? (
+        <Image source={art} style={{ width: "78%", height: "78%" }} contentFit="contain" />
+      ) : (
+        <Icon {...ELEMENT_ICON[element]} size={isCenter ? 32 : 22} color={elementColor} />
+      )}
     </View>
   );
 

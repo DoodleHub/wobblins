@@ -1,9 +1,11 @@
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/EmptyState";
+import { HexBadge } from "@/components/HexBadge";
 import { Icon, type IconSpec } from "@/components/Icon";
 import { LevelUpBanner } from "@/components/LevelUpBanner";
 import { MonsterCard } from "@/components/MonsterCard";
@@ -11,7 +13,9 @@ import { RewardToast } from "@/components/RewardToast";
 import { Skeleton } from "@/components/Skeleton";
 import { StatBar } from "@/components/StatBar";
 import { XPBar } from "@/components/XPBar";
-import { COLORS, type Element, type Rarity } from "@/constants/theme";
+import { PLAYER_PORTRAIT } from "@/constants/avatars";
+import { SPECIES_ART } from "@/constants/speciesArt";
+import { COLORS, ELEMENT_ICON, type Element, type Rarity } from "@/constants/theme";
 import { useClaimDailyReward } from "@/hooks/useDailyReward";
 import { usePlayer } from "@/hooks/usePlayer";
 import { useFeaturedWobblin } from "@/hooks/useWobblins";
@@ -63,7 +67,7 @@ export default function HomeScreen() {
       <RewardToast reward={dailyReward} offsetTop={76} />
       <ScrollView
         className="flex-1"
-        contentContainerClassName="w-full min-w-0 flex-grow gap-6 px-6 pb-8 pt-16"
+        contentContainerClassName="w-full min-w-0 flex-grow gap-6 px-6 pb-32 pt-16"
       >
         {loading || !player ? (
           error ? (
@@ -93,16 +97,28 @@ function PlayerHeader({ player, onLevelUp }: { player: Player; onLevelUp: (level
   return (
     <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
       <View className="flex-row items-center justify-between">
-        <View className="gap-0.5">
-          <Text className="font-display-bold text-2xl text-text">{player.username}</Text>
-          <Text className="font-sans-medium text-sm text-text-muted">Level {player.level}</Text>
+        <View className="flex-row items-center gap-3">
+          <View>
+            <Image
+              source={PLAYER_PORTRAIT}
+              style={{ width: 64, height: 64, borderRadius: 32 }}
+              contentFit="cover"
+            />
+            <View className="absolute -bottom-1 -right-1 h-6 w-6 items-center justify-center rounded-full border border-border bg-surface-raised">
+              <Icon family="ionicons" name="pencil" size={12} color={COLORS.textMuted} />
+            </View>
+          </View>
+          <View className="gap-0.5">
+            <Text className="font-display-bold text-2xl text-text">{player.username}</Text>
+            <Text className="font-sans-medium text-sm text-primary-dark">Level {player.level}</Text>
+          </View>
         </View>
-        <View className="h-12 w-12 items-center justify-center rounded-full bg-primary-light">
-          <Text className="font-display-bold text-lg text-primary-dark">{player.level}</Text>
-        </View>
+        <HexBadge value={player.level} />
       </View>
 
-      <View className="flex-row gap-6">
+      <View className="h-px bg-border" />
+
+      <View className="flex-row items-center gap-4">
         <Stat
           icon={{ family: "material-community", name: "gold" }}
           iconColor={COLORS.gold}
@@ -110,6 +126,7 @@ function PlayerHeader({ player, onLevelUp }: { player: Player; onLevelUp: (level
           value={player.gold.toLocaleString()}
           className="text-gold"
         />
+        <View className="h-8 w-px bg-border" />
         <Stat
           icon={{ family: "ionicons", name: "flash" }}
           iconColor={COLORS.energy}
@@ -118,6 +135,8 @@ function PlayerHeader({ player, onLevelUp }: { player: Player; onLevelUp: (level
           className="text-energy"
         />
       </View>
+
+      <View className="h-px bg-border" />
 
       <XPBar level={player.level} experience={player.experience} onLevelUp={onLevelUp} />
     </View>
@@ -149,6 +168,7 @@ function FeaturedWobblinCard({
   const element = featured.species.element.toLowerCase() as Element;
   const rarity = featured.species.rarity.toLowerCase() as Rarity;
   const name = featured.nickname ?? featured.species.name;
+  const art = SPECIES_ART[featured.species.name];
 
   return (
     <MonsterCard
@@ -159,15 +179,59 @@ function FeaturedWobblinCard({
       eyebrow="Active Wobblin"
       onPress={() => router.push(`/wobblin/${featured.id}`)}
     >
-      <StatBar label="HP" value={featured.hp} max={featured.hp} color={COLORS.hp} />
-      <XPBar level={featured.level} experience={featured.experience} onLevelUp={onLevelUp} />
+      <View className="flex-row items-center gap-4">
+        <View className="flex-1 gap-3">
+          <StatBar
+            label="HP"
+            value={featured.hp}
+            max={featured.hp}
+            color={COLORS.hp}
+            icon={{ family: "ionicons", name: "heart" }}
+            valuePosition="below"
+          />
+          <XPBar
+            level={featured.level}
+            experience={featured.experience}
+            onLevelUp={onLevelUp}
+            showLevel={false}
+            icon={{ family: "ionicons", name: "star" }}
+            valuePosition="below"
+          />
+        </View>
+        {art ? (
+          <Image source={art} style={{ width: 140, height: 170 }} contentFit="contain" />
+        ) : (
+          <View
+            className="h-32 w-32 items-center justify-center rounded-full border bg-background"
+            style={{ borderColor: `${COLORS.textSubtle}33` }}
+          >
+            <Icon {...ELEMENT_ICON[element]} size={48} color={COLORS.textSubtle} />
+          </View>
+        )}
+      </View>
 
-      <View className="flex-row flex-wrap gap-4">
-        <Stat label="Attack" value={String(featured.attack)} className="text-text" />
-        <Stat label="Defense" value={String(featured.defense)} className="text-text" />
-        <Stat label="Speed" value={String(featured.speed)} className="text-text" />
+      <View className="h-px bg-border" />
+
+      <View className="flex-row">
+        <StatColumn icon={{ family: "material-community", name: "sword" }} label="Attack" value={featured.attack} />
+        <View className="w-px bg-border" />
+        <StatColumn icon={{ family: "ionicons", name: "shield-outline" }} label="Defense" value={featured.defense} />
+        <View className="w-px bg-border" />
+        <StatColumn icon={{ family: "material-community", name: "feather" }} label="Speed" value={featured.speed} />
       </View>
     </MonsterCard>
+  );
+}
+
+function StatColumn({ icon, label, value }: { icon: IconSpec; label: string; value: number }) {
+  return (
+    <View className="flex-1 items-center gap-1">
+      <View className="flex-row items-center gap-1.5">
+        <Icon {...icon} size={16} color={COLORS.textMuted} />
+        <Text className="font-sans-medium text-sm text-text-muted">{label}</Text>
+      </View>
+      <Text className="font-display-bold text-xl text-text">{value}</Text>
+    </View>
   );
 }
 

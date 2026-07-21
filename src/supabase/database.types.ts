@@ -286,9 +286,12 @@ export type Database = {
           base_speed: number
           description: string
           element: string
+          evolution_level: number | null
+          evolves_into_id: string | null
           id: string
           name: string
           rarity: string
+          stage: number
         }
         Insert: {
           base_attack: number
@@ -297,9 +300,12 @@ export type Database = {
           base_speed: number
           description: string
           element: string
+          evolution_level?: number | null
+          evolves_into_id?: string | null
           id?: string
           name: string
           rarity: string
+          stage?: number
         }
         Update: {
           base_attack?: number
@@ -308,11 +314,22 @@ export type Database = {
           base_speed?: number
           description?: string
           element?: string
+          evolution_level?: number | null
+          evolves_into_id?: string | null
           id?: string
           name?: string
           rarity?: string
+          stage?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "wobblin_species_evolves_into_id_fkey"
+            columns: ["evolves_into_id"]
+            isOneToOne: false
+            referencedRelation: "wobblin_species"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -392,6 +409,7 @@ export type Database = {
       }
       check_achievements: { Args: never; Returns: Json }
       claim_daily_reward: { Args: never; Returns: Json }
+      evolve_wobblin: { Args: { p_player_wobblin_id: string }; Returns: Json }
       regen_player_energy: {
         Args: { p_player_id: string }
         Returns: {

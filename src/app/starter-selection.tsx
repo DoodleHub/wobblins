@@ -6,6 +6,7 @@ import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { MonsterCard } from "@/components/MonsterCard";
+import { SPECIES_ART } from "@/constants/speciesArt";
 import type { Element, Rarity } from "@/constants/theme";
 import { useCreateStarterWobblin, useStarterSpecies } from "@/hooks/useWobblins";
 import { useSupabase } from "@/supabase/SupabaseProvider";
@@ -102,7 +103,15 @@ function StarterCard({
   const rarity = species.rarity.toLowerCase() as Rarity;
 
   return (
-    <MonsterCard name={species.name} element={element} rarity={rarity} layout="center" selected={selected} onPress={onPress}>
+    <MonsterCard
+      name={species.name}
+      element={element}
+      rarity={rarity}
+      art={SPECIES_ART[species.name]}
+      layout="center"
+      selected={selected}
+      onPress={onPress}
+    >
       <View className="flex-row flex-wrap justify-center gap-4">
         <Stat label="HP" value={species.base_hp} className="text-hp" />
         <Stat label="Attack" value={species.base_attack} />

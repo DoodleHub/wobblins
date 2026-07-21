@@ -17,7 +17,7 @@
 
 import type { IconSpec } from "@/components/Icon";
 
-export type Element = "fire" | "ice" | "water" | "nature" | "shadow";
+export type Element = "fire" | "water" | "grass" | "thunder" | "dark" | "ice" | "rock" | "wind" | "light" | "poison";
 
 export type Rarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
 
@@ -49,19 +49,29 @@ export const COLORS = {
 
 export const ELEMENT_COLORS: Record<Element, string> = {
   fire: "#fb923c",
-  ice: "#22d3ee",
   water: "#60a5fa",
-  nature: "#4ade80",
-  shadow: "#a78bfa",
+  grass: "#4ade80",
+  thunder: "#facc15",
+  dark: "#8b5cf6",
+  ice: "#22d3ee",
+  rock: "#a8a29e",
+  wind: "#2dd4bf",
+  light: "#fde68a",
+  poison: "#d946ef",
 };
 
 /** Placeholder icon for each element, used where a monster image would go. */
 export const ELEMENT_ICON: Record<Element, IconSpec> = {
   fire: { family: "ionicons", name: "flame" },
-  ice: { family: "ionicons", name: "snow" },
   water: { family: "ionicons", name: "water" },
-  nature: { family: "ionicons", name: "leaf" },
-  shadow: { family: "ionicons", name: "moon" },
+  grass: { family: "ionicons", name: "leaf" },
+  thunder: { family: "ionicons", name: "flash" },
+  dark: { family: "ionicons", name: "moon" },
+  ice: { family: "ionicons", name: "snow" },
+  rock: { family: "material-community", name: "terrain" },
+  wind: { family: "material-community", name: "weather-windy" },
+  light: { family: "ionicons", name: "sunny" },
+  poison: { family: "ionicons", name: "skull" },
 };
 
 export const RARITY_COLORS: Record<Rarity, string> = {
