@@ -156,7 +156,7 @@ export default function MonsterDetailScreen() {
             icon={{ family: "material-community", name: "star-four-points" }}
             iconColor={COLORS.secondary}
             value={String(wobblin.training_points)}
-            label={"Training\nPoints"}
+            label="Training Points"
           />
           <View className="h-10 w-px bg-border" />
           <QuickFact
@@ -504,7 +504,14 @@ function QuickFact({
     <View className="flex-1 items-center gap-1">
       <Icon {...icon} size={20} color={iconColor ?? COLORS.textMuted} />
       <Text className="font-display-bold text-base text-text">{value}</Text>
-      <Text className="text-center font-sans-medium text-[11px] text-text-subtle">{label}</Text>
+      <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.8}
+        className="text-center font-sans-medium text-[11px] text-text-subtle"
+      >
+        {label}
+      </Text>
     </View>
   );
 }

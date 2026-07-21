@@ -6,7 +6,6 @@ import { FlatList, Pressable, Text, TextInput, useWindowDimensions, View } from 
 import { EmptyState } from "@/components/EmptyState";
 import { Icon, type IconSpec } from "@/components/Icon";
 import { Skeleton } from "@/components/Skeleton";
-import { TraitBadge } from "@/components/TraitBadge";
 import { SPECIES_ART } from "@/constants/speciesArt";
 import { COLORS, ELEMENT_COLORS, ELEMENT_ICON, RARITY_COLORS, type Element, type Rarity } from "@/constants/theme";
 import { useScrollScreenContentStyle } from "@/hooks/useTabBarClearance";
@@ -222,21 +221,13 @@ function WobblinGridCard({ wobblin, width }: { wobblin: PlayerWobblin; width: nu
       onPress={() => router.push(`/wobblin/${wobblin.id}`)}
       accessibilityRole="button"
       className="gap-2 overflow-hidden rounded-2xl border p-2"
-      style={{ width, borderColor: `${elementColor}55`, backgroundColor: `${elementColor}14` }}
+      style={{ width, borderColor: `${rarityColor}55`, backgroundColor: `${rarityColor}14` }}
     >
-      <View className="flex-row items-center justify-between">
-        <View
-          className="h-6 w-6 items-center justify-center rounded-full border"
-          style={{ borderColor: `${elementColor}66`, backgroundColor: `${elementColor}22` }}
-        >
-          <Icon {...ELEMENT_ICON[element]} size={12} color={elementColor} />
-        </View>
-        <View
-          className="h-6 w-6 items-center justify-center rounded-full border"
-          style={{ borderColor: `${rarityColor}66`, backgroundColor: `${rarityColor}22` }}
-        >
-          <Icon family="ionicons" name="star" size={12} color={rarityColor} />
-        </View>
+      <View
+        className="h-6 w-6 items-center justify-center rounded-full border"
+        style={{ borderColor: `${elementColor}66`, backgroundColor: `${elementColor}22` }}
+      >
+        <Icon {...ELEMENT_ICON[element]} size={12} color={elementColor} />
       </View>
 
       <View className="aspect-square items-center justify-center">
@@ -257,7 +248,6 @@ function WobblinGridCard({ wobblin, width }: { wobblin: PlayerWobblin; width: nu
           {name}
         </Text>
         <Text className="font-sans-medium text-xs text-text-muted">Level {wobblin.level}</Text>
-        <TraitBadge label={rarity} color={rarityColor} />
       </View>
     </Pressable>
   );
