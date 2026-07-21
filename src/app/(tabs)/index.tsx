@@ -18,6 +18,7 @@ import { SPECIES_ART } from "@/constants/speciesArt";
 import { COLORS, ELEMENT_ICON, type Element, type Rarity } from "@/constants/theme";
 import { useClaimDailyReward } from "@/hooks/useDailyReward";
 import { usePlayer } from "@/hooks/usePlayer";
+import { useScrollScreenContentStyle } from "@/hooks/useTabBarClearance";
 import { useFeaturedWobblin } from "@/hooks/useWobblins";
 import type { Player } from "@/supabase/players";
 import { useSupabase } from "@/supabase/SupabaseProvider";
@@ -60,15 +61,13 @@ export default function HomeScreen() {
 
   const loading = playerPending;
   const error = playerError ? getErrorMessage(playerError) : null;
+  const contentStyle = useScrollScreenContentStyle(24, 1);
 
   return (
     <View className="flex-1 bg-background">
       <LevelUpBanner level={levelUp} />
       <RewardToast reward={dailyReward} offsetTop={76} />
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="w-full min-w-0 flex-grow gap-6 px-6 pb-32 pt-16"
-      >
+      <ScrollView className="flex-1" contentContainerStyle={contentStyle}>
         {loading || !player ? (
           error ? (
             <View className="flex-1 items-center justify-center py-24">

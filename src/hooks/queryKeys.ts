@@ -8,4 +8,5 @@ export const queryKeys = {
   allSpecies: () => ["allSpecies"] as const,
   achievements: () => ["achievements"] as const,
   playerAchievements: (playerId: string | undefined) => ["playerAchievements", playerId] as const,
+  playerBattles: (playerId: string | undefined) => ["playerBattles", playerId] as const,
 };

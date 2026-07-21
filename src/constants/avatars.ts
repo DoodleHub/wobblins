@@ -1,8 +1,12 @@
 import playerPortrait from "@/assets/images/wobblins/avatar-player.png";
+import profileBanner from "@/assets/images/wobblins/profile-banner.png";
 import type { IconSpec } from "@/components/Icon";
 
 /** Illustrated player portrait used on the Home header, from the Home screen redesign mock. */
 export const PLAYER_PORTRAIT: number = playerPortrait;
+
+/** Night-sky mountain art behind the Profile header card, from the Profile screen redesign mock. */
+export const PROFILE_BANNER: number = profileBanner;
 
 export type AvatarId = "explorer" | "mage" | "knight";
 

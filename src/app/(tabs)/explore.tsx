@@ -18,6 +18,7 @@ import {
 } from "@/constants/locations";
 import { COLORS, ELEMENT_COLORS } from "@/constants/theme";
 import { usePlayer, useSpendEnergy } from "@/hooks/usePlayer";
+import { useScrollScreenContentStyle } from "@/hooks/useTabBarClearance";
 import type { Player } from "@/supabase/players";
 import { useSupabase } from "@/supabase/SupabaseProvider";
 import { getErrorMessage } from "@/utils/errors";
@@ -42,6 +43,7 @@ export default function ExploreScreen() {
 
   const [error, setError] = useState<string | null>(null);
   const [exploringId, setExploringId] = useState<string | null>(null);
+  const contentStyle = useScrollScreenContentStyle(24, 1);
 
   const onExplore = async (location: ExploreLocation) => {
     if (!player) return;
@@ -80,10 +82,7 @@ export default function ExploreScreen() {
   };
 
   return (
-    <ScrollView
-      className="flex-1 bg-background"
-      contentContainerClassName="w-full min-w-0 flex-grow gap-6 px-6 pb-32 pt-16"
-    >
+    <ScrollView className="flex-1 bg-background" contentContainerStyle={contentStyle}>
       <View className="flex-row items-start justify-between">
         <View className="flex-1 gap-1 pr-4">
           <Text className="font-display-bold text-3xl text-text">Explore</Text>

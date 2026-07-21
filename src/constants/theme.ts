@@ -82,6 +82,26 @@ export const RARITY_COLORS: Record<Rarity, string> = {
   legendary: "#f59e0b",
 };
 
+/**
+ * Blends two opaque hex colors into a third opaque hex color. Used instead of
+ * an alpha (`${color}33`) tint anywhere a solid fill has to visually match
+ * across adjacent shapes built from different primitives (e.g. `HexIconBadge`'s
+ * border-triangle + background-rect construction) — translucent borders and
+ * translucent background fills don't composite identically in RN, which shows
+ * up as a visible seam between the two even when given the same rgba value.
+ */
+export function mixColors(base: string, tint: string, ratio: number): string {
+  const b = parseInt(base.slice(1), 16);
+  const t = parseInt(tint.slice(1), 16);
+  const mix = (shift: number) => {
+    const bc = (b >> shift) & 255;
+    const tc = (t >> shift) & 255;
+    return Math.round(bc + (tc - bc) * ratio);
+  };
+  const channel = (n: number) => n.toString(16).padStart(2, "0");
+  return `#${channel(mix(16))}${channel(mix(8))}${channel(mix(0))}`;
+}
+
 /** Font family class names, matching the weights loaded in `_layout.tsx`. */
 export const FONTS = {
   display: "font-display",

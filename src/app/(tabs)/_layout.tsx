@@ -1,10 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import type { ComponentProps } from "react";
-import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { COLORS } from "@/constants/theme";
+import { TAB_BAR_HEIGHT } from "@/hooks/useTabBarClearance";
 
 const ICONS: Record<string, ComponentProps<typeof Ionicons>["name"]> = {
   index: "home",
@@ -30,41 +30,35 @@ export default function TabsLayout() {
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textSubtle,
         tabBarStyle: {
+          // Flush with the true bottom edge and full device width (edge-to-edge, no
+          // floating side margins or rounded top corners) so there's no empty strip
+          // below or beside the bar. The bar's own height absorbs the safe-area inset
+          // instead — its background extends through that inset, with `paddingBottom`
+          // keeping the tappable icons above it.
           position: "absolute",
-          left: 16,
-          right: 16,
-          bottom: insets.bottom + 8,
-          height: 78,
-          paddingBottom: 0,
-          borderRadius: 24,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: TAB_BAR_HEIGHT + insets.bottom,
+          paddingBottom: insets.bottom,
           backgroundColor: COLORS.surface,
-          borderWidth: 1,
-          borderColor: COLORS.border,
-          elevation: 8,
-          shadowColor: "#000",
-          shadowOpacity: 0.3,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: 4 },
+          borderTopWidth: 1,
+          borderTopColor: COLORS.border,
         },
         tabBarItemStyle: {
-          paddingTop: 12,
+          justifyContent: "center",
         },
         tabBarLabelStyle: {
           fontFamily: "Manrope_600SemiBold",
           fontSize: 11,
-          marginTop: 2,
+          marginTop: 4,
         },
         tabBarIcon: ({ focused, color }) => (
-          <View
-            className="items-center justify-center rounded-2xl"
-            style={{ width: 40, height: 28, backgroundColor: focused ? COLORS.primary : "transparent" }}
-          >
-            <Ionicons
-              name={focused ? ICONS[route.name] : ICONS_OUTLINE[route.name]}
-              size={20}
-              color={focused ? "#ffffff" : color}
-            />
-          </View>
+          <Ionicons
+            name={focused ? ICONS[route.name] : ICONS_OUTLINE[route.name]}
+            size={22}
+            color={color}
+          />
         ),
       })}
     >

@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/Skeleton";
 import { TraitBadge } from "@/components/TraitBadge";
 import { SPECIES_ART } from "@/constants/speciesArt";
 import { COLORS, ELEMENT_COLORS, ELEMENT_ICON, RARITY_COLORS, type Element, type Rarity } from "@/constants/theme";
+import { useScrollScreenContentStyle } from "@/hooks/useTabBarClearance";
 import { useAllSpecies, usePlayerWobblins } from "@/hooks/useWobblins";
 import { useSupabase } from "@/supabase/SupabaseProvider";
 import type { PlayerWobblin } from "@/supabase/wobblins";
@@ -48,6 +49,7 @@ export default function CollectionScreen() {
   const [filter, setFilter] = useState<FilterValue>("all");
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const contentStyle = useScrollScreenContentStyle(CARD_GAP);
 
   const filtered = useMemo(() => {
     if (!wobblins) return [];
@@ -80,7 +82,7 @@ export default function CollectionScreen() {
   return (
     <FlatList
       className="flex-1 bg-background"
-      contentContainerClassName="w-full min-w-0 gap-3 px-6 pb-32 pt-16"
+      contentContainerStyle={contentStyle}
       columnWrapperStyle={{ gap: CARD_GAP }}
       data={filtered}
       numColumns={3}
@@ -305,8 +307,9 @@ function StatTile({ icon, value, label }: { icon: IconSpec; value: string; label
 }
 
 function CollectionSkeleton() {
+  const contentStyle = useScrollScreenContentStyle(16);
   return (
-    <View className="flex-1 gap-4 bg-background px-6 pb-32 pt-16">
+    <View className="flex-1 bg-background" style={contentStyle}>
       <Skeleton className="mb-2 h-9 w-48" />
       <View className="flex-row flex-wrap gap-3">
         {[0, 1, 2].map((i) => (

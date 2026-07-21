@@ -1,9 +1,18 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { resolveBattle } from "@/supabase/battles";
+import { getPlayerBattles, resolveBattle } from "@/supabase/battles";
 
 import { useCheckAchievements } from "./useAchievements";
 import { queryKeys } from "./queryKeys";
+
+/** The player's full battle history — backs Profile's Recent Activity feed and battles-won achievement progress. */
+export function usePlayerBattles(playerId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.playerBattles(playerId),
+    queryFn: () => getPlayerBattles(playerId!),
+    enabled: !!playerId,
+  });
+}
 
 /**
  * Runs a full AI battle via `resolve_battle`. Modeled as a mutation, not a
@@ -24,6 +33,7 @@ export function useResolveBattle(wobblinId: string | undefined, playerId: string
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.wobblin(wobblinId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.playerWobblins(playerId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.playerBattles(playerId) });
       if (result.winner === "player") {
         queryClient.invalidateQueries({ queryKey: queryKeys.player(playerId) });
         checkAchievements.mutate();
