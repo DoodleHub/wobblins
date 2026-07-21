@@ -1,9 +1,10 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
 import { EvolutionBanner } from "@/components/EvolutionBanner";
+import { Icon } from "@/components/Icon";
 import { LevelUpBanner } from "@/components/LevelUpBanner";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { MonsterCard } from "@/components/MonsterCard";
@@ -70,6 +71,16 @@ export default function MonsterDetailScreen() {
         className="flex-1"
         contentContainerClassName="w-full min-w-0 flex-grow gap-6 px-6 pb-8 pt-16"
       >
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          className="h-10 w-10 items-center justify-center rounded-full border"
+          style={{ borderColor: COLORS.border, backgroundColor: COLORS.surface }}
+        >
+          <Icon family="ionicons" name="chevron-back" size={20} color={COLORS.text} />
+        </Pressable>
+
         <View className="gap-2">
           <MonsterCard
             name={name}

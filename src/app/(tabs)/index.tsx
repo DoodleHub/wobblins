@@ -23,10 +23,9 @@ import { useFeaturedWobblin } from "@/hooks/useWobblins";
 import type { Player } from "@/supabase/players";
 import { useSupabase } from "@/supabase/SupabaseProvider";
 import type { FeaturedWobblin } from "@/supabase/wobblins";
+import { getMaxEnergy } from "@/utils/energy";
 import { getErrorMessage } from "@/utils/errors";
 import { dailyRewardToReward } from "@/utils/rewardToast";
-
-const ENERGY_MAX = 50;
 
 export default function HomeScreen() {
   const { session } = useSupabase();
@@ -130,7 +129,7 @@ function PlayerHeader({ player, onLevelUp }: { player: Player; onLevelUp: (level
           icon={{ family: "ionicons", name: "flash" }}
           iconColor={COLORS.energy}
           label="Energy"
-          value={`${player.energy}/${ENERGY_MAX}`}
+          value={`${player.energy}/${getMaxEnergy(player.level)}`}
           className="text-energy"
         />
       </View>

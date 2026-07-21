@@ -134,7 +134,7 @@ The Home screen's "featured Wobblin" is `players.active_wobblin_id` if set (via 
 
 ## locations
 
-`id, name (unique), energy_cost`. Backs the server-side cost lookup for `spend_energy`. The 4 explorable locations (Forest, Volcano, Ocean, Shadow Realm) and which wild species appear in each are currently **hardcoded client-side** in `src/constants/locations.ts`, not read from this table or from `wobblin_species` — there's no capture-from-database flow yet for wild encounters, only for the resulting captured Wobblin.
+`id, name (unique), energy_cost`. This table is currently **vestigial** — `spend_energy` does not join against it; energy cost and the minimum player level required per location are both hardcoded in a `case p_location_id` inside the RPC itself (keyed by the same string ids used in `src/constants/locations.ts`, e.g. `'forest'`, `'shadow-realm'`). The 10 explorable locations and which wild species appear in each are **hardcoded client-side** in `src/constants/locations.ts`, not read from this table or from `wobblin_species` — there's no capture-from-database flow yet for wild encounters, only for the resulting captured Wobblin. `ExploreLocation.minPlayerLevel` mirrors the RPC's per-location gate purely for the Explore screen's lock UI — the RPC re-checks it server-side (`v_player.level < v_min_level`), so a tampered client can't explore a locked location for free.
 
 ## battles
 
@@ -181,11 +181,13 @@ Every `player_wobblins` row has `hp, attack, defense, speed`, initialized from t
 
 ## Training
 
-Each `player_wobblins` row has a `training_points` balance (starts at 0 — currently only grows via leveling server-side). Training screen offers Attack/Defense/Speed, each costing 1 point, enforced by the `train_wobblin` RPC.
+Each `player_wobblins` row has a `training_points` balance (starts at 0), which grows two ways, both server-side: passively via a Wobblin's own leveling, and — since the player-level features below — via **player**-level-ups. Inside `resolve_battle`, a win that pushes `players.level` up grants `2 * levels_gained` training points to the Wobblin that just fought (not the player's featured Wobblin — the one passed as `p_wobblin_id`). `resolve_battle`'s returned jsonb carries `player_levels_gained`/`training_points_awarded` so `battle.tsx` can show the bonus in the victory panel. Training screen offers Attack/Defense/Speed, each costing 1 point, enforced by the `train_wobblin` RPC.
 
 ## Exploration & Energy
 
-4 locations, each with a fixed energy cost (Forest 5, Volcano 8, Ocean 8, Shadow Realm 15 — not a flat 5 across all locations). `players.energy` defaults to 50 (`v_max_energy` in the regen functions — update both places if this ever changes).
+10 locations, each with a fixed energy cost (Forest 5 up to Shadow Realm 12 — not a flat cost across all locations) **and** a minimum player level (`ExploreLocation.minPlayerLevel` in `src/constants/locations.ts`, re-enforced inside `spend_energy`'s `case p_location_id` — see the `locations` table note above). Locked locations render with a lock badge on the Explore screen instead of the energy-cost pill.
+
+`players.energy` caps out at `50 + 5 * (level - 1)` — max energy scales with player level, not a flat 50. This formula lives in two places that must stay in sync: `regen_player_energy`'s `v_max_energy` (server, authoritative) and `src/utils/energy.ts`'s `getMaxEnergy` (client, display-only mirror used by Home/Explore/Profile's energy readouts).
 
 Energy regenerates passively at 1 per 5 minutes, computed **lazily** rather than via a cron job: `players.energy_updated_at` is a checkpoint timestamp, and `regen_player_energy(p_player_id)` (internal only) computes `floor(elapsed_seconds / 300)` whole ticks and advances the checkpoint by exactly that many ticks' worth of time — never to "now" — so partial progress toward the next tick is never lost between reads. It's invoked via `sync_player_energy()` (called by `getPlayer()` on every read) and inline at the top of `spend_energy` (so a stale energy value can never wrongly block an affordable explore). There is no `pg_cron` job — everything is compute-on-read. If a true background regen (energy ticking up even while the app is closed, for push-notification purposes, etc.) is ever needed, `pg_cron` is available in the project but not installed.
 

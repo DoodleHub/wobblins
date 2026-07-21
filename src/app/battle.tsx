@@ -176,7 +176,20 @@ export default function BattleScreen() {
               value={`+${battleResult.xp_reward}`}
               className="text-xp"
             />
+            {battleResult.training_points_awarded > 0 && (
+              <Reward
+                icon={{ family: "material-community", name: "dumbbell" }}
+                label="Training"
+                value={`+${battleResult.training_points_awarded}`}
+                className="text-primary"
+              />
+            )}
           </View>
+          {battleResult.player_levels_gained > 0 && (
+            <Text className="text-center font-sans-medium text-xs text-text-muted">
+              You leveled up! {playerName} earned {battleResult.training_points_awarded} bonus training points.
+            </Text>
+          )}
           <View className="gap-3">
             <Button label="Battle Again" onPress={startBattle} loading={battleMutation.isPending} />
             <Button label="Back to Wobblin" variant="secondary" onPress={() => router.back()} />

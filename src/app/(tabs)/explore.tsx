@@ -21,9 +21,9 @@ import { usePlayer, useSpendEnergy } from "@/hooks/usePlayer";
 import { useScrollScreenContentStyle } from "@/hooks/useTabBarClearance";
 import type { Player } from "@/supabase/players";
 import { useSupabase } from "@/supabase/SupabaseProvider";
+import { getMaxEnergy } from "@/utils/energy";
 import { getErrorMessage } from "@/utils/errors";
 
-const ENERGY_MAX = 50;
 const REGEN_INTERVAL_SECONDS = 300;
 
 /** Guarantees title/description legibility over bright spots in card background art, on top of the gradient scrim. */
@@ -47,6 +47,11 @@ export default function ExploreScreen() {
 
   const onExplore = async (location: ExploreLocation) => {
     if (!player) return;
+
+    if (player.level < location.minPlayerLevel) {
+      setError(`${location.name} requires player level ${location.minPlayerLevel}.`);
+      return;
+    }
 
     if (player.energy < location.energyCost) {
       setError(
@@ -104,6 +109,7 @@ export default function ExploreScreen() {
               key={location.id}
               location={location}
               energy={player?.energy ?? 0}
+              playerLevel={player?.level ?? 1}
               loading={exploringId === location.id}
               disabled={exploringId !== null}
               onPress={() => onExplore(location)}
@@ -129,7 +135,7 @@ function EnergyStatus({ player }: { player: Player }) {
       <View className="flex-row items-center gap-1.5 rounded-full border border-energy/40 bg-energy/10 px-3.5 py-2">
         <Icon family="ionicons" name="flash" size={16} color={COLORS.energy} />
         <Text className="font-display-bold text-base text-energy">
-          {player.energy}/{ENERGY_MAX}
+          {player.energy}/{getMaxEnergy(player.level)}
         </Text>
       </View>
       {refillLabel && (
@@ -144,7 +150,7 @@ function EnergyStatus({ player }: { player: Player }) {
 
 /** Client-side countdown for display only — actual regen stays compute-on-read server-side (see AGENTS.md). */
 function useEnergyRefillLabel(player: Player): string | null {
-  const capped = player.energy >= ENERGY_MAX;
+  const capped = player.energy >= getMaxEnergy(player.level);
   const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {
@@ -167,17 +173,20 @@ function useEnergyRefillLabel(player: Player): string | null {
 function LocationCard({
   location,
   energy,
+  playerLevel,
   loading,
   disabled,
   onPress,
 }: {
   location: ExploreLocation;
   energy: number;
+  playerLevel: number;
   loading: boolean;
   disabled: boolean;
   onPress: () => void;
 }) {
-  const canAfford = energy >= location.energyCost;
+  const locked = playerLevel < location.minPlayerLevel;
+  const canAfford = !locked && energy >= location.energyCost;
   const accent = ELEMENT_COLORS[location.accent];
 
   return (
@@ -187,7 +196,11 @@ function LocationCard({
       accessibilityRole="button"
       accessibilityLabel={`${location.name}, costs ${location.energyCost} energy`}
       accessibilityHint={
-        canAfford ? "Explore this location" : "Not enough energy"
+        locked
+          ? `Requires player level ${location.minPlayerLevel}`
+          : canAfford
+            ? "Explore this location"
+            : "Not enough energy"
       }
       accessibilityState={{ disabled: disabled || !canAfford, busy: loading }}
       className={`h-36 overflow-hidden rounded-3xl border ${!canAfford ? "opacity-50" : ""}`}
@@ -235,39 +248,55 @@ function LocationCard({
             </View>
 
             <View className="flex-row items-center justify-between">
-              <View
-                className="flex-row items-center gap-1.5 self-start rounded-full border px-3 py-1.5"
-                style={{
-                  borderColor: accent,
-                  backgroundColor: `${COLORS.background}99`,
-                }}
-              >
-                <Icon
-                  family="ionicons"
-                  name="flash"
-                  size={12}
-                  color={COLORS.energy}
-                />
-                <Text className="font-sans-semibold text-xs text-energy">
-                  {location.energyCost} energy
-                </Text>
-              </View>
-
-              {loading ? (
-                <ActivityIndicator color={COLORS.primary} />
-              ) : (
-                <View className="flex-row items-center gap-1">
-                  <Text className="font-sans-bold text-sm text-primary">
-                    Explore
+              {locked ? (
+                <View
+                  className="flex-row items-center gap-1.5 self-start rounded-full border px-3 py-1.5"
+                  style={{
+                    borderColor: COLORS.textSubtle,
+                    backgroundColor: `${COLORS.background}99`,
+                  }}
+                >
+                  <Icon family="ionicons" name="lock-closed" size={12} color={COLORS.textSubtle} />
+                  <Text className="font-sans-semibold text-xs text-text-subtle">
+                    Requires Level {location.minPlayerLevel}
                   </Text>
+                </View>
+              ) : (
+                <View
+                  className="flex-row items-center gap-1.5 self-start rounded-full border px-3 py-1.5"
+                  style={{
+                    borderColor: accent,
+                    backgroundColor: `${COLORS.background}99`,
+                  }}
+                >
                   <Icon
                     family="ionicons"
-                    name="arrow-forward"
-                    size={14}
-                    color={COLORS.primary}
+                    name="flash"
+                    size={12}
+                    color={COLORS.energy}
                   />
+                  <Text className="font-sans-semibold text-xs text-energy">
+                    {location.energyCost} energy
+                  </Text>
                 </View>
               )}
+
+              {!locked &&
+                (loading ? (
+                  <ActivityIndicator color={COLORS.primary} />
+                ) : (
+                  <View className="flex-row items-center gap-1">
+                    <Text className="font-sans-bold text-sm text-primary">
+                      Explore
+                    </Text>
+                    <Icon
+                      family="ionicons"
+                      name="arrow-forward"
+                      size={14}
+                      color={COLORS.primary}
+                    />
+                  </View>
+                ))}
             </View>
           </View>
         </View>

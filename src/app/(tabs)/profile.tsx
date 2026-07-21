@@ -2,8 +2,9 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { AchievementTray } from "@/components/AchievementTray";
 import { Button } from "@/components/Button";
 import { HexBadge, HexIconBadge } from "@/components/HexBadge";
 import { Icon, type IconSpec } from "@/components/Icon";
@@ -21,10 +22,9 @@ import { signOut } from "@/supabase/auth";
 import { useSupabase } from "@/supabase/SupabaseProvider";
 import { getAchievementProgress, type AchievementStats } from "@/utils/achievements";
 import { buildRecentActivity, formatRelativeTime, type ActivityItem } from "@/utils/activity";
+import { getMaxEnergy } from "@/utils/energy";
 import { getErrorMessage } from "@/utils/errors";
 import { getXpProgress } from "@/utils/xp";
-
-const ENERGY_MAX = 50;
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -38,6 +38,7 @@ export default function ProfileScreen() {
   const { data: playerAchievements } = usePlayerAchievements(playerId);
 
   const [signingOut, setSigningOut] = useState(false);
+  const [selectedAchievementId, setSelectedAchievementId] = useState<string | null>(null);
   const contentStyle = useScrollScreenContentStyle(24, 1);
 
   const onSignOut = async () => {
@@ -75,6 +76,12 @@ export default function ProfileScreen() {
   };
   const activity = buildRecentActivity(wobblins, battles);
 
+  const selectedAchievement = achievements?.find((a) => a.id === selectedAchievementId) ?? null;
+  const selectedUnlocked = selectedAchievement ? unlockedIds.has(selectedAchievement.id) : false;
+  const selectedProgress = selectedAchievement
+    ? getAchievementProgress(selectedAchievement, stats, selectedUnlocked)
+    : null;
+
   const memberSince = new Date(player.created_at).toLocaleDateString(undefined, {
     month: "short",
     year: "numeric",
@@ -101,7 +108,7 @@ export default function ProfileScreen() {
         <StatColumn
           icon={{ family: "ionicons", name: "flash" }}
           iconColor={COLORS.energy}
-          value={`${player.energy}/${ENERGY_MAX}`}
+          value={`${player.energy}/${getMaxEnergy(player.level)}`}
           label={"Energy\nCapacity"}
         />
       </View>
@@ -119,6 +126,7 @@ export default function ProfileScreen() {
                 achievement={achievement}
                 unlocked={unlockedIds.has(achievement.id)}
                 stats={stats}
+                onPress={() => setSelectedAchievementId(achievement.id)}
               />
             ))}
           </View>
@@ -146,6 +154,15 @@ export default function ProfileScreen() {
       </View>
 
       <Button label="Sign Out" variant="secondary" onPress={onSignOut} loading={signingOut} />
+
+      <AchievementTray
+        achievement={selectedAchievement}
+        unlocked={selectedUnlocked}
+        current={selectedProgress?.current ?? 0}
+        target={selectedProgress?.target ?? 0}
+        percent={selectedProgress?.percent ?? 0}
+        onClose={() => setSelectedAchievementId(null)}
+      />
     </ScrollView>
   );
 }
@@ -239,17 +256,20 @@ function AchievementCard({
   achievement,
   unlocked,
   stats,
+  onPress,
 }: {
   achievement: Achievement;
   unlocked: boolean;
   stats: AchievementStats;
+  onPress: () => void;
 }) {
   const icon = { family: achievement.icon_family, name: achievement.icon_name } as IconSpec;
   const progress = getAchievementProgress(achievement, stats, unlocked);
   const fillColor = unlocked ? COLORS.gold : COLORS.primary;
 
   return (
-    <View
+    <Pressable
+      onPress={onPress}
       className="w-[22%] items-center justify-between gap-1.5 rounded-xl border p-2 pb-3"
       style={{
         borderColor: unlocked ? `${COLORS.gold}66` : COLORS.border,
@@ -291,7 +311,7 @@ function AchievementCard({
           <View className="h-full rounded-full" style={{ width: `${progress.percent}%`, backgroundColor: fillColor }} />
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 

@@ -43,6 +43,10 @@ export type BattleResult = {
   turns: BattleTurn[];
   gold_reward: number;
   xp_reward: number;
+  /** How many player-account levels this win pushed the player through, 0 on no level-up. */
+  player_levels_gained: number;
+  /** Training points credited to this Wobblin as a player-level-up bonus (2 per level gained). */
+  training_points_awarded: number;
 };
 
 /**

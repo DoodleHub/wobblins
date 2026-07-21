@@ -29,6 +29,8 @@ export type ExploreLocation = {
   accent: Element;
   description: string;
   energyCost: number;
+  /** Minimum `players.level` required to explore here — enforced server-side in `spend_energy`, mirrored here only for the lock UI. */
+  minPlayerLevel: number;
   species: EncounterSpecies[];
 };
 
@@ -40,6 +42,7 @@ export const LOCATIONS: ExploreLocation[] = [
     accent: "grass",
     description: "A calm woodland where Sproutlings root themselves for an afternoon nap.",
     energyCost: 5,
+    minPlayerLevel: 1,
     species: [
       { name: "Sproutling", element: "grass", rarity: "common", base_hp: 95, base_attack: 17, base_defense: 20, base_speed: 13 },
     ],
@@ -51,6 +54,7 @@ export const LOCATIONS: ExploreLocation[] = [
     accent: "light",
     description: "A sunlit clearing said to be blessed — Luminas gather here to bask.",
     energyCost: 6,
+    minPlayerLevel: 1,
     species: [
       { name: "Lumina", element: "light", rarity: "common", base_hp: 90, base_attack: 18, base_defense: 18, base_speed: 20 },
     ],
@@ -62,6 +66,7 @@ export const LOCATIONS: ExploreLocation[] = [
     accent: "wind",
     description: "Floating islets wreathed in cloud, home to Zephyras riding the updrafts.",
     energyCost: 6,
+    minPlayerLevel: 2,
     species: [
       { name: "Zephyra", element: "wind", rarity: "common", base_hp: 80, base_attack: 18, base_defense: 15, base_speed: 30 },
     ],
@@ -73,6 +78,7 @@ export const LOCATIONS: ExploreLocation[] = [
     accent: "water",
     description: "Rolling tides hiding Aquabubs drifting just beneath the surface.",
     energyCost: 7,
+    minPlayerLevel: 3,
     species: [
       { name: "Aquabub", element: "water", rarity: "common", base_hp: 100, base_attack: 16, base_defense: 22, base_speed: 14 },
     ],
@@ -84,6 +90,7 @@ export const LOCATIONS: ExploreLocation[] = [
     accent: "ice",
     description: "A windswept ice field where Frostlings leave frozen footprints behind.",
     energyCost: 8,
+    minPlayerLevel: 4,
     species: [
       { name: "Frostling", element: "ice", rarity: "common", base_hp: 100, base_attack: 18, base_defense: 22, base_speed: 15 },
     ],
@@ -95,6 +102,7 @@ export const LOCATIONS: ExploreLocation[] = [
     accent: "rock",
     description: "A rubble-strewn quarry where stubborn Pebblits refuse to be moved.",
     energyCost: 8,
+    minPlayerLevel: 4,
     species: [
       { name: "Pebblit", element: "rock", rarity: "common", base_hp: 110, base_attack: 16, base_defense: 28, base_speed: 8 },
     ],
@@ -106,6 +114,7 @@ export const LOCATIONS: ExploreLocation[] = [
     accent: "fire",
     description: "Scorched terrain home to fiery Emberlings.",
     energyCost: 9,
+    minPlayerLevel: 5,
     species: [
       { name: "Emberling", element: "fire", rarity: "common", base_hp: 85, base_attack: 25, base_defense: 15, base_speed: 18 },
     ],
@@ -117,6 +126,7 @@ export const LOCATIONS: ExploreLocation[] = [
     accent: "poison",
     description: "A murky fen thick with fumes, where Venomites lurk just beneath the sludge.",
     energyCost: 9,
+    minPlayerLevel: 6,
     species: [
       { name: "Venomite", element: "poison", rarity: "common", base_hp: 85, base_attack: 20, base_defense: 18, base_speed: 20 },
     ],
@@ -128,6 +138,7 @@ export const LOCATIONS: ExploreLocation[] = [
     accent: "thunder",
     description: "A lightning-lashed summit where twitchy Voltkits spark with every gust.",
     energyCost: 10,
+    minPlayerLevel: 7,
     species: [
       { name: "Voltkit", element: "thunder", rarity: "common", base_hp: 75, base_attack: 22, base_defense: 13, base_speed: 28 },
     ],
@@ -139,6 +150,7 @@ export const LOCATIONS: ExploreLocation[] = [
     accent: "dark",
     description: "A dark rift where mischievous Shadowimps lurk. Costs the most energy to enter.",
     energyCost: 12,
+    minPlayerLevel: 9,
     species: [
       { name: "Shadowimp", element: "dark", rarity: "common", base_hp: 80, base_attack: 24, base_defense: 14, base_speed: 22 },
     ],
