@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
 import { Icon, type IconSpec } from "@/components/Icon";
@@ -123,6 +123,17 @@ export default function BattleScreen() {
     <View className="relative w-full min-w-0 flex-1 gap-5 bg-background px-6 pb-8 pt-16">
       <LevelUpBanner level={levelUp} label={`${playerName} leveled up!`} />
       <RewardToast reward={achievementReward} offsetTop={76} />
+
+      <Pressable
+        onPress={() => router.back()}
+        accessibilityRole="button"
+        accessibilityLabel="Go back"
+        className="h-10 w-10 items-center justify-center rounded-full border"
+        style={{ borderColor: COLORS.border, backgroundColor: COLORS.surface }}
+      >
+        <Icon family="ionicons" name="chevron-back" size={20} color={COLORS.text} />
+      </Pressable>
+
       <Text className="text-center font-display-bold text-2xl text-text">Battle</Text>
 
       <View className="flex-row items-center gap-3">

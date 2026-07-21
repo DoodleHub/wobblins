@@ -1,7 +1,8 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
+import { Icon } from "@/components/Icon";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { StatBar } from "@/components/StatBar";
 import { COLORS } from "@/constants/theme";
@@ -47,6 +48,16 @@ export default function TrainingScreen() {
 
   return (
     <View className="w-full min-w-0 flex-1 gap-6 bg-background px-6 pb-8 pt-16">
+      <Pressable
+        onPress={() => router.back()}
+        accessibilityRole="button"
+        accessibilityLabel="Go back"
+        className="h-10 w-10 items-center justify-center rounded-full border"
+        style={{ borderColor: COLORS.border, backgroundColor: COLORS.surface }}
+      >
+        <Icon family="ionicons" name="chevron-back" size={20} color={COLORS.text} />
+      </Pressable>
+
       <View className="items-center gap-1">
         <Text className="font-display-bold text-2xl text-text">{name}</Text>
         <Text className="font-sans-medium text-sm text-text-muted">Level {wobblin.level} Training</Text>
