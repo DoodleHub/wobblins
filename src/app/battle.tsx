@@ -35,8 +35,13 @@ export default function BattleScreen() {
   function startBattle() {
     battleMutation.mutate(undefined, {
       onSuccess: (result) => {
+        const playerName = wobblin?.nickname ?? wobblin?.species.name ?? "Your Wobblin";
+        const speedLine =
+          result.first_actor === "player"
+            ? `${playerName} is faster and strikes first!`
+            : `${result.enemy.name} is faster and strikes first!`;
         setTurnIndex(0);
-        setLog([`A wild ${result.enemy.name} appears!`]);
+        setLog([`A wild ${result.enemy.name} appears!`, speedLine]);
         setPhase("fighting");
       },
     });
@@ -127,6 +132,8 @@ export default function BattleScreen() {
           element={playerElement}
           hp={playerHp}
           maxHp={battleResult.player_max_hp}
+          speed={battleResult.player_speed}
+          fasterThan={battleResult.player_speed > battleResult.enemy.speed}
           xp={{ experience: wobblin.experience, onLevelUp: setLevelUp }}
         />
         <Text className="font-display-bold text-lg text-text-subtle">VS</Text>
@@ -136,6 +143,8 @@ export default function BattleScreen() {
           element={enemyElement}
           hp={enemyHp}
           maxHp={battleResult.enemy.max_hp}
+          speed={battleResult.enemy.speed}
+          fasterThan={battleResult.enemy.speed > battleResult.player_speed}
         />
       </View>
 
@@ -197,6 +206,8 @@ function Combatant({
   element,
   hp,
   maxHp,
+  speed,
+  fasterThan,
   xp,
 }: {
   name: string;
@@ -204,6 +215,9 @@ function Combatant({
   element: Element;
   hp: number;
   maxHp: number;
+  speed: number;
+  /** Whether this combatant's speed is strictly higher than its opponent's — determines who struck first this battle. */
+  fasterThan: boolean;
   xp?: { experience: number; onLevelUp?: (level: number) => void };
 }) {
   const elementColor = ELEMENT_COLORS[element];
@@ -233,6 +247,15 @@ function Combatant({
         <Text className="font-sans-medium text-xs text-text-muted">Level {level}</Text>
       </View>
       <StatBar label="HP" value={hp} max={maxHp} color={COLORS.hp} />
+      <View className="flex-row items-center justify-center gap-1">
+        <Icon family="ionicons" name="flash" size={11} color={fasterThan ? COLORS.energy : COLORS.textSubtle} />
+        <Text
+          className="font-sans-semibold text-[11px]"
+          style={{ color: fasterThan ? COLORS.energy : COLORS.textSubtle }}
+        >
+          {speed} Speed{fasterThan ? " · Strikes First" : ""}
+        </Text>
+      </View>
       {xp && <XPBar level={level} experience={xp.experience} onLevelUp={xp.onLevelUp} showLevel={false} />}
     </View>
   );

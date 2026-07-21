@@ -191,7 +191,7 @@ function LocationCard({
         canAfford ? "Explore this location" : "Not enough energy"
       }
       accessibilityState={{ disabled: disabled || !canAfford, busy: loading }}
-      className={`h-36 overflow-hidden rounded-3xl border-1 ${!canAfford ? "opacity-50" : ""}`}
+      className={`h-36 overflow-hidden rounded-3xl border ${!canAfford ? "opacity-50" : ""}`}
       style={{ borderColor: accent }}
     >
       {({ pressed }) => (
@@ -209,7 +209,7 @@ function LocationCard({
           <View className="flex-1 justify-between p-4">
             <View className="flex-row items-center gap-3.5">
               <View
-                className="h-14 w-14 items-center justify-center rounded-full border-1"
+                className="h-14 w-14 items-center justify-center rounded-full border"
                 style={{
                   borderColor: accent,
                   backgroundColor: `${COLORS.background}99`,

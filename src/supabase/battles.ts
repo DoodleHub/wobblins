@@ -13,12 +13,16 @@ export type BattleEnemy = {
   element: string;
   rarity: string;
   max_hp: number;
+  speed: number;
 };
 
 export type BattleResult = {
   winner: "player" | "enemy";
+  /** Which combatant's (level-scaled) speed was higher and struck first each round — ties are broken randomly server-side. */
+  first_actor: "player" | "enemy";
   enemy: BattleEnemy;
   player_max_hp: number;
+  player_speed: number;
   turns: BattleTurn[];
   gold_reward: number;
   xp_reward: number;
