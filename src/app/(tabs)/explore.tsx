@@ -21,10 +21,8 @@ import { usePlayer, useSpendEnergy } from "@/hooks/usePlayer";
 import { useScrollScreenContentStyle } from "@/hooks/useTabBarClearance";
 import type { Player } from "@/supabase/players";
 import { useSupabase } from "@/supabase/SupabaseProvider";
-import { getMaxEnergy } from "@/utils/energy";
+import { ENERGY_REGEN_INTERVAL_SECONDS, getMaxEnergy } from "@/utils/energy";
 import { getErrorMessage } from "@/utils/errors";
-
-const REGEN_INTERVAL_SECONDS = 300;
 
 /** Guarantees title/description legibility over bright spots in card background art, on top of the gradient scrim. */
 const CARD_TEXT_SHADOW = {
@@ -163,8 +161,8 @@ function useEnergyRefillLabel(player: Player): string | null {
 
   const updatedAt = new Date(player.energy_updated_at).getTime();
   const elapsedSeconds = Math.max(0, (now - updatedAt) / 1000);
-  const secondsIntoTick = elapsedSeconds % REGEN_INTERVAL_SECONDS;
-  const secondsRemaining = Math.ceil(REGEN_INTERVAL_SECONDS - secondsIntoTick);
+  const secondsIntoTick = elapsedSeconds % ENERGY_REGEN_INTERVAL_SECONDS;
+  const secondsRemaining = Math.ceil(ENERGY_REGEN_INTERVAL_SECONDS - secondsIntoTick);
   const minutes = Math.floor(secondsRemaining / 60);
   const seconds = secondsRemaining % 60;
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
