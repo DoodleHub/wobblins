@@ -137,7 +137,6 @@ export default function MonsterDetailScreen() {
           name={name}
           speciesName={wobblin.species.name}
           nicknamed={wobblin.nickname != null}
-          stage={wobblin.species.stage}
           element={element}
           rarity={rarity}
           elementColor={elementColor}
@@ -331,7 +330,6 @@ function MonsterHero({
   name,
   speciesName,
   nicknamed,
-  stage,
   element,
   rarity,
   elementColor,
@@ -341,7 +339,6 @@ function MonsterHero({
   name: string;
   speciesName: string;
   nicknamed: boolean;
-  stage: number;
   element: Element;
   rarity: Rarity;
   elementColor: string;
@@ -402,10 +399,9 @@ function MonsterHero({
 
       <View className="items-center gap-1">
         <Text className="text-center font-display-bold text-2xl text-text">{name}</Text>
-        <Text className="font-sans-medium text-sm text-text-muted">
-          {nicknamed ? speciesName : `Stage ${stage}`}
-          {nicknamed && ` · Stage ${stage}`}
-        </Text>
+        {nicknamed && (
+          <Text className="font-sans-medium text-sm text-text-muted">{speciesName}</Text>
+        )}
       </View>
 
       <View className="flex-row gap-2">
