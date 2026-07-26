@@ -34,6 +34,13 @@ const FILTERS: { value: FilterValue; label: string; icon: IconSpec }[] = [
   { value: "poison", label: "Poison", icon: ELEMENT_ICON.poison },
 ];
 
+/** Canonical element display order, reused to sort the collection by element/evolution group. */
+const ELEMENT_ORDER: Record<Element, number> = Object.fromEntries(
+  FILTERS.filter((option): option is { value: Element; label: string; icon: IconSpec } => option.value !== "all").map(
+    (option, index) => [option.value, index],
+  ),
+) as Record<Element, number>;
+
 const SCREEN_PADDING = 24;
 const CARD_GAP = 12;
 
@@ -58,7 +65,13 @@ export default function CollectionScreen() {
       const query = search.trim().toLowerCase();
       result = result.filter((w) => (w.nickname ?? w.species.name).toLowerCase().includes(query));
     }
-    return result;
+    return [...result].sort((a, b) => {
+      const elementDiff =
+        ELEMENT_ORDER[a.species.element.toLowerCase() as Element] -
+        ELEMENT_ORDER[b.species.element.toLowerCase() as Element];
+      if (elementDiff !== 0) return elementDiff;
+      return a.species.stage - b.species.stage;
+    });
   }, [wobblins, filter, search]);
 
   const speciesDiscovered = useMemo(() => {
