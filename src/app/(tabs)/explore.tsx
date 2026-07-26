@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -11,6 +11,7 @@ import {
 } from "react-native";
 
 import { Icon } from "@/components/Icon";
+import { RewardToast, type RewardToastData } from "@/components/RewardToast";
 import {
   LOCATIONS,
   rollEncounter,
@@ -35,13 +36,39 @@ export default function ExploreScreen() {
   const router = useRouter();
   const { session } = useSupabase();
   const playerId = session?.user.id;
+  const { caught } = useLocalSearchParams<{ caught?: string }>();
 
   const { data: player, isPending: playerPending } = usePlayer(playerId);
   const spendEnergy = useSpendEnergy(playerId);
 
   const [error, setError] = useState<string | null>(null);
   const [exploringId, setExploringId] = useState<string | null>(null);
+  const [captureToast, setCaptureToast] = useState<RewardToastData | null>(null);
+  const [lastCaught, setLastCaught] = useState<string | undefined>(caught);
   const contentStyle = useScrollScreenContentStyle(24, 1);
+
+  /**
+   * The encounter screen dismisses back here with a `caught` param instead
+   * of showing its own toast, since it navigates away the instant the catch
+   * animation finishes — a toast on a screen that's disappearing wouldn't
+   * be seen. This reacts to the param the way React recommends reacting to
+   * a changed prop (set state during render, not in an effect); clearing
+   * the param itself is the actual effect, since that's a sync with the
+   * external router rather than local state, and stops it re-firing on a
+   * later re-render of this already-mounted screen.
+   */
+  if (caught && caught !== lastCaught) {
+    setLastCaught(caught);
+    setCaptureToast({
+      icon: { family: "ionicons", name: "checkmark-circle" },
+      title: "Gotcha!",
+      subtitle: `${caught} was added to your collection.`,
+    });
+  }
+
+  useEffect(() => {
+    if (caught) router.setParams({ caught: undefined });
+  }, [caught, router]);
 
   const onExplore = async (location: ExploreLocation) => {
     if (!player) return;
@@ -85,43 +112,47 @@ export default function ExploreScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-background" contentContainerStyle={contentStyle}>
-      <View className="flex-row items-start justify-between">
-        <View className="flex-1 gap-1 pr-4">
-          <Text className="font-display-bold text-3xl text-text">Explore</Text>
-          <Text className="font-sans text-base text-text-muted">
-            Spend energy to discover wild Wobblins.
-          </Text>
-        </View>
-        {player && <EnergyStatus player={player} />}
-      </View>
+    <View className="flex-1 bg-background">
+      <RewardToast reward={captureToast} />
 
-      {playerPending ? (
-        <View className="items-center py-12">
-          <ActivityIndicator color={COLORS.primary} />
+      <ScrollView className="flex-1" contentContainerStyle={contentStyle}>
+        <View className="flex-row items-start justify-between">
+          <View className="flex-1 gap-1 pr-4">
+            <Text className="font-display-bold text-3xl text-text">Explore</Text>
+            <Text className="font-sans text-base text-text-muted">
+              Spend energy to discover wild Wobblins.
+            </Text>
+          </View>
+          {player && <EnergyStatus player={player} />}
         </View>
-      ) : (
-        <View className="gap-5">
-          {LOCATIONS.map((location) => (
-            <LocationCard
-              key={location.id}
-              location={location}
-              energy={player?.energy ?? 0}
-              playerLevel={player?.level ?? 1}
-              loading={exploringId === location.id}
-              disabled={exploringId !== null}
-              onPress={() => onExplore(location)}
-            />
-          ))}
-        </View>
-      )}
 
-      {error && (
-        <View className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3">
-          <Text className="font-sans-medium text-sm text-danger">{error}</Text>
-        </View>
-      )}
-    </ScrollView>
+        {playerPending ? (
+          <View className="items-center py-12">
+            <ActivityIndicator color={COLORS.primary} />
+          </View>
+        ) : (
+          <View className="gap-5">
+            {LOCATIONS.map((location) => (
+              <LocationCard
+                key={location.id}
+                location={location}
+                energy={player?.energy ?? 0}
+                playerLevel={player?.level ?? 1}
+                loading={exploringId === location.id}
+                disabled={exploringId !== null}
+                onPress={() => onExplore(location)}
+              />
+            ))}
+          </View>
+        )}
+
+        {error && (
+          <View className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3">
+            <Text className="font-sans-medium text-sm text-danger">{error}</Text>
+          </View>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
