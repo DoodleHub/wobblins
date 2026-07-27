@@ -74,6 +74,17 @@ export default function CollectionScreen() {
   const [search, setSearch] = useState("");
   const contentStyle = useScrollScreenContentStyle(CARD_GAP);
 
+  // Maps each evolution_chain_id to its stage-0 species name, so chains sort
+  // in a stable, human-readable order (alphabetical by base species) rather
+  // than by the raw (meaningless) UUID.
+  const chainBaseName = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const species of allSpecies ?? []) {
+      if (species.stage === 0) map.set(species.evolution_chain_id, species.name);
+    }
+    return map;
+  }, [allSpecies]);
+
   const filtered = useMemo(() => {
     if (!wobblins) return [];
     let result = wobblins;
@@ -87,9 +98,13 @@ export default function CollectionScreen() {
         ELEMENT_ORDER[a.species.element.toLowerCase() as Element] -
         ELEMENT_ORDER[b.species.element.toLowerCase() as Element];
       if (elementDiff !== 0) return elementDiff;
+      const chainDiff = (chainBaseName.get(a.species.evolution_chain_id) ?? "").localeCompare(
+        chainBaseName.get(b.species.evolution_chain_id) ?? "",
+      );
+      if (chainDiff !== 0) return chainDiff;
       return a.species.stage - b.species.stage;
     });
-  }, [wobblins, filter, search]);
+  }, [wobblins, filter, search, chainBaseName]);
 
   const speciesDiscovered = useMemo(() => {
     if (!wobblins) return 0;

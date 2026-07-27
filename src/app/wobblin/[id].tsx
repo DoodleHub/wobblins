@@ -13,7 +13,7 @@ import { LoadingScreen } from "@/components/LoadingScreen";
 import { RewardToast, type RewardToastData } from "@/components/RewardToast";
 import { TraitBadge } from "@/components/TraitBadge";
 import { XPBar } from "@/components/XPBar";
-import { SPECIES_ART } from "@/constants/speciesArt";
+import { SPECIES_ART, SPECIES_ART_ASPECT } from "@/constants/speciesArt";
 import { COLORS, ELEMENT_COLORS, ELEMENT_ICON, mixColors, RARITY_COLORS, type Element, type Rarity } from "@/constants/theme";
 import { useClaimEgg } from "@/hooks/useEggs";
 import { useSetActiveWobblin } from "@/hooks/usePlayer";
@@ -32,6 +32,16 @@ import type { PlayerWobblin } from "@/supabase/wobblins";
 import { getErrorMessage } from "@/utils/errors";
 
 const EGG_CADENCE_MS = (hours: number) => hours * 60 * 60 * 1000;
+
+// See the aspect-ratio comment in MonsterHero for why the portrait box isn't
+// just a fixed square. This is the only image on the screen, so both
+// dimensions are free to grow together (preserving aspect ratio) up to this
+// bounding box — whichever dimension the image's aspect ratio hits first
+// determines the final size, the same way a browser sizes a responsive
+// `object-fit: contain` image against a max-width/max-height box.
+const HERO_PORTRAIT_MAX_WIDTH = 300;
+const HERO_PORTRAIT_MAX_HEIGHT = 260;
+const HERO_PORTRAIT_MIN_HEIGHT = 168;
 
 export default function MonsterDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -538,6 +548,29 @@ function MonsterHero({
 }) {
   const heroTint = mixColors(COLORS.surface, elementColor, 0.2);
 
+  // Source portraits aren't all drawn on the same canvas shape (gen-2 art
+  // in particular skews wider than gen-1's near-square crops), so a fixed
+  // box would letterbox wide portraits far more than square ones under
+  // contentFit="contain", making them read as smaller even though every
+  // portrait is cropped equally tight to its subject. This is the only
+  // image on the screen, so instead of pinning height and only letting
+  // width flex (which under-sizes anything below the box's own aspect
+  // ratio), both dimensions grow together — preserving the portrait's
+  // aspect ratio — up to whichever bound (width or height) it hits first,
+  // the same way a browser sizes `object-fit: contain` against a
+  // max-width/max-height box.
+  const aspect = art ? (SPECIES_ART_ASPECT[speciesName] ?? 1) : 1;
+  let portraitWidth = HERO_PORTRAIT_MAX_HEIGHT * aspect;
+  let portraitHeight = HERO_PORTRAIT_MAX_HEIGHT;
+  if (portraitWidth > HERO_PORTRAIT_MAX_WIDTH) {
+    portraitWidth = HERO_PORTRAIT_MAX_WIDTH;
+    portraitHeight = HERO_PORTRAIT_MAX_WIDTH / aspect;
+  }
+  if (portraitHeight < HERO_PORTRAIT_MIN_HEIGHT) {
+    portraitHeight = HERO_PORTRAIT_MIN_HEIGHT;
+    portraitWidth = HERO_PORTRAIT_MIN_HEIGHT * aspect;
+  }
+
   return (
     <View
       className="items-center gap-4 overflow-hidden rounded-3xl border px-6 pb-6 pt-9"
@@ -550,7 +583,7 @@ function MonsterHero({
         style={StyleSheet.absoluteFill}
       />
 
-      <View style={{ width: 240, height: 224 }} className="items-center justify-center">
+      <View style={{ width: portraitWidth, height: portraitHeight }} className="items-center justify-center">
         <View
           pointerEvents="none"
           style={{

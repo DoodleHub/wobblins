@@ -11,7 +11,7 @@ import { MonsterCard } from "@/components/MonsterCard";
 import { Skeleton } from "@/components/Skeleton";
 import { XPBar } from "@/components/XPBar";
 import { PLAYER_PORTRAIT } from "@/constants/avatars";
-import { SPECIES_ART } from "@/constants/speciesArt";
+import { SPECIES_ART, SPECIES_ART_ASPECT } from "@/constants/speciesArt";
 import { COLORS, ELEMENT_COLORS, ELEMENT_ICON, type Element, type Rarity } from "@/constants/theme";
 import { usePlayer } from "@/hooks/usePlayer";
 import { useScrollScreenContentStyle } from "@/hooks/useTabBarClearance";
@@ -22,6 +22,12 @@ import { useSupabase } from "@/supabase/SupabaseProvider";
 import type { Task } from "@/supabase/tasks";
 import type { FeaturedWobblin } from "@/supabase/wobblins";
 import { getErrorMessage } from "@/utils/errors";
+
+// See the aspect-ratio comment in FeaturedWobblinCard for why the portrait
+// box isn't just a fixed square.
+const FEATURED_PORTRAIT_MAX_WIDTH = 260;
+const FEATURED_PORTRAIT_MAX_HEIGHT = 200;
+const FEATURED_PORTRAIT_MIN_HEIGHT = 130;
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -196,6 +202,24 @@ function FeaturedWobblinCard({
   const name = featured.nickname ?? featured.species.name;
   const art = SPECIES_ART[featured.species.name];
 
+  // Source portraits aren't all drawn on the same canvas shape (see the
+  // matching comment on the Wobblin detail hero), so a fixed square box
+  // would letterbox wide portraits far more than square ones under
+  // contentFit="contain". This is the only image in the card, so both
+  // dimensions grow together — preserving the portrait's aspect ratio — up
+  // to whichever bound (width or height) it hits first.
+  const aspect = art ? (SPECIES_ART_ASPECT[featured.species.name] ?? 1) : 1;
+  let portraitWidth = FEATURED_PORTRAIT_MAX_HEIGHT * aspect;
+  let portraitHeight = FEATURED_PORTRAIT_MAX_HEIGHT;
+  if (portraitWidth > FEATURED_PORTRAIT_MAX_WIDTH) {
+    portraitWidth = FEATURED_PORTRAIT_MAX_WIDTH;
+    portraitHeight = FEATURED_PORTRAIT_MAX_WIDTH / aspect;
+  }
+  if (portraitHeight < FEATURED_PORTRAIT_MIN_HEIGHT) {
+    portraitHeight = FEATURED_PORTRAIT_MIN_HEIGHT;
+    portraitWidth = FEATURED_PORTRAIT_MIN_HEIGHT * aspect;
+  }
+
   return (
     <MonsterCard
       name={name}
@@ -206,7 +230,7 @@ function FeaturedWobblinCard({
       onPress={() => router.push(`/wobblin/${featured.id}`)}
     >
       <View className="items-center py-1">
-        <View style={{ width: 168, height: 168 }} className="items-center justify-center">
+        <View style={{ width: portraitWidth, height: portraitHeight }} className="items-center justify-center">
           <View
             pointerEvents="none"
             style={{
