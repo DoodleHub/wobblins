@@ -13,8 +13,6 @@ export const queryKeys = {
   weeklyShop: () => ["weeklyShop"] as const,
   marketplaceListings: () => ["marketplaceListings"] as const,
   myListings: (playerId: string | undefined) => ["myListings", playerId] as const,
-  incomingTradeOffers: (playerId: string | undefined) => ["incomingTradeOffers", playerId] as const,
-  outgoingTradeOffers: (playerId: string | undefined) => ["outgoingTradeOffers", playerId] as const,
-  playerWobblinsForTrade: (playerId: string | undefined) =>
-    ["playerWobblinsForTrade", playerId] as const,
+  offersForListing: (listingId: string | undefined) => ["offersForListing", listingId] as const,
+  achievements: (playerId: string | undefined) => ["achievements", playerId] as const,
 };

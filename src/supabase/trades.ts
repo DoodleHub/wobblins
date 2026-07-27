@@ -65,7 +65,7 @@ export type BuyListedWobblinResult = {
   new_balance: number;
 };
 
-/** Buys another player's active listing via the `buy_listed_wobblin` RPC (atomic, first-buyer-wins). */
+/** Buys another player's active essence listing via the `buy_listed_wobblin` RPC (atomic, first-buyer-wins). */
 export async function buyListedWobblin(listingId: string): Promise<BuyListedWobblinResult> {
   const { data, error } = await supabase.rpc("buy_listed_wobblin", { p_listing_id: listingId });
 
@@ -73,113 +73,85 @@ export async function buyListedWobblin(listingId: string): Promise<BuyListedWobb
   return data as unknown as BuyListedWobblinResult;
 }
 
-export type TradeOffer = Tables<"trade_offers"> & {
-  offered_wobblin: PlayerWobblin;
-  requested_wobblin: PlayerWobblin;
-  proposer: PlayerPublicProfile;
-  recipient: PlayerPublicProfile;
-};
+export type ListWobblinForOffersResult = { listing: Tables<"marketplace_listings"> };
 
-const TRADE_OFFER_SELECT =
-  "*, offered_wobblin:player_wobblins!trade_offers_offered_wobblin_id_fkey(*, species:wobblin_species(*)), requested_wobblin:player_wobblins!trade_offers_requested_wobblin_id_fkey(*, species:wobblin_species(*)), proposer:player_public_profiles!trade_offers_proposer_id_fkey(*), recipient:player_public_profiles!trade_offers_recipient_id_fkey(*)";
-
-/** Trade offers awaiting the caller's response, for the Trade tab's Offers mode. */
-export async function getIncomingTradeOffers(playerId: string) {
-  const { data, error } = await supabase
-    .from("trade_offers")
-    .select(TRADE_OFFER_SELECT)
-    .eq("recipient_id", playerId)
-    .order("created_at", { ascending: false });
-
-  if (error) throw error;
-  return data as unknown as TradeOffer[];
-}
-
-/** Trade offers the caller has sent, for the Trade tab's Offers mode. */
-export async function getOutgoingTradeOffers(playerId: string) {
-  const { data, error } = await supabase
-    .from("trade_offers")
-    .select(TRADE_OFFER_SELECT)
-    .eq("proposer_id", playerId)
-    .order("created_at", { ascending: false });
-
-  if (error) throw error;
-  return data as unknown as TradeOffer[];
-}
-
-export type ProposeTradeOfferResult = { offer: Tables<"trade_offers"> };
-
-/** Proposes a direct Wobblin-for-Wobblin trade via the `propose_trade_offer` RPC. */
-export async function proposeTradeOffer(
-  offeredWobblinId: string,
-  recipientId: string,
-  requestedWobblinId: string,
-): Promise<ProposeTradeOfferResult> {
-  const { data, error } = await supabase.rpc("propose_trade_offer", {
-    p_offered_wobblin_id: offeredWobblinId,
-    p_recipient_id: recipientId,
-    p_requested_wobblin_id: requestedWobblinId,
+/** Lists an owned Wobblin as open-to-offers (no fixed price) via the `list_wobblin_for_offers` RPC. */
+export async function listWobblinForOffers(playerWobblinId: string): Promise<ListWobblinForOffersResult> {
+  const { data, error } = await supabase.rpc("list_wobblin_for_offers", {
+    p_player_wobblin_id: playerWobblinId,
   });
 
   if (error) throw error;
-  return data as unknown as ProposeTradeOfferResult;
+  return data as unknown as ListWobblinForOffersResult;
 }
 
-export type RespondToTradeOfferResult = {
-  offer: Tables<"trade_offers">;
+export type MarketplaceOffer = Tables<"marketplace_offers"> & {
+  buyer?: PlayerPublicProfile;
+  offered_wobblins: { player_wobblin: PlayerWobblin }[];
+};
+
+/** Every offer (any status) against one of the caller's own listings — RLS-gated to the listing's seller/each offer's buyer. */
+export async function getOffersForListing(listingId: string): Promise<MarketplaceOffer[]> {
+  const { data, error } = await supabase
+    .from("marketplace_offers")
+    .select(
+      "*, buyer:player_public_profiles!marketplace_offers_buyer_id_fkey(*), offered_wobblins:marketplace_offer_wobblins(player_wobblin:player_wobblins(*, species:wobblin_species(*)))",
+    )
+    .eq("listing_id", listingId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data as unknown as MarketplaceOffer[];
+}
+
+export type ProposeWobblinOfferResult = {
+  offer: Tables<"marketplace_offers">;
+  offered_wobblin_ids: string[];
+};
+
+/** Proposes one or more of the caller's own Wobblins in exchange for an offers-type listing, via `propose_wobblin_offer`. */
+export async function proposeWobblinOffer(
+  listingId: string,
+  offeredWobblinIds: string[],
+): Promise<ProposeWobblinOfferResult> {
+  const { data, error } = await supabase.rpc("propose_wobblin_offer", {
+    p_listing_id: listingId,
+    p_offered_wobblin_ids: offeredWobblinIds,
+  });
+
+  if (error) throw error;
+  return data as unknown as ProposeWobblinOfferResult;
+}
+
+export type RespondToWobblinOfferResult = {
+  offer: Tables<"marketplace_offers">;
   success: boolean;
-  reason?: string;
+  reason?: "listing_no_longer_active" | "wobblin_no_longer_owned";
 };
 
 /**
- * Accepts or declines a trade offer via the `respond_to_trade_offer` RPC. On
- * accept, both Wobblins' ownership is re-validated at this exact moment —
- * either side may have sold/traded/sacrificed theirs since the offer was
- * proposed. `success: false` means the offer self-healed to `cancelled`
- * instead of completing; the client should surface that distinctly rather
- * than treat it as a normal request error.
+ * Accepts or declines a pending offer on one of the caller's own listings via `respond_to_wobblin_offer`.
+ * `success: false` means the server self-healed the offer to 'cancelled' instead of completing the swap
+ * (the listing resolved via a different offer, or the buyer no longer owns what they offered) — an expected
+ * race outcome, not a client error, same pattern as the old `respond_to_trade_offer`.
  */
-export async function respondToTradeOffer(
+export async function respondToWobblinOffer(
   offerId: string,
   accept: boolean,
-): Promise<RespondToTradeOfferResult> {
-  const { data, error } = await supabase.rpc("respond_to_trade_offer", {
+): Promise<RespondToWobblinOfferResult> {
+  const { data, error } = await supabase.rpc("respond_to_wobblin_offer", {
     p_offer_id: offerId,
     p_accept: accept,
   });
 
   if (error) throw error;
-  return data as unknown as RespondToTradeOfferResult;
+  return data as unknown as RespondToWobblinOfferResult;
 }
 
-/** Withdraws the caller's own still-pending outgoing offer via the `cancel_trade_offer` RPC. */
-export async function cancelTradeOffer(offerId: string) {
-  const { data, error } = await supabase.rpc("cancel_trade_offer", { p_offer_id: offerId });
+/** Cancels the caller's own pending offer via the `cancel_wobblin_offer` RPC. */
+export async function cancelWobblinOffer(offerId: string) {
+  const { data, error } = await supabase.rpc("cancel_wobblin_offer", { p_offer_id: offerId });
 
   if (error) throw error;
-  return data as unknown as { offer: Tables<"trade_offers"> };
-}
-
-/** Looks up another player's public profile (username/avatar) for the trade composer, by exact username. */
-export async function findPlayerByUsername(username: string) {
-  const { data, error } = await supabase
-    .from("player_public_profiles")
-    .select("*")
-    .eq("username", username)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data as PlayerPublicProfile | null;
-}
-
-/** Another player's owned Wobblins, for browsing what to request in a trade offer. */
-export async function getPlayerWobblinsForTrade(playerId: string) {
-  const { data, error } = await supabase
-    .from("player_wobblins")
-    .select("*, species:wobblin_species(*)")
-    .eq("player_id", playerId)
-    .order("acquired_at", { ascending: false });
-
-  if (error) throw error;
-  return data as PlayerWobblin[];
+  return data as unknown as { offer: Tables<"marketplace_offers"> };
 }

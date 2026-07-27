@@ -3,16 +3,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   buyListedWobblin,
   cancelListing,
-  cancelTradeOffer,
-  findPlayerByUsername,
-  getIncomingTradeOffers,
+  cancelWobblinOffer,
   getMarketplaceListings,
   getMyListings,
-  getOutgoingTradeOffers,
-  getPlayerWobblinsForTrade,
+  getOffersForListing,
+  listWobblinForOffers,
   listWobblinForSale,
-  proposeTradeOffer,
-  respondToTradeOffer,
+  proposeWobblinOffer,
+  respondToWobblinOffer,
 } from "@/supabase/trades";
 
 import { queryKeys } from "./queryKeys";
@@ -29,36 +27,6 @@ export function useMyListings(playerId: string | undefined) {
     queryKey: queryKeys.myListings(playerId),
     queryFn: () => getMyListings(playerId!),
     enabled: !!playerId,
-  });
-}
-
-export function useIncomingTradeOffers(playerId: string | undefined) {
-  return useQuery({
-    queryKey: queryKeys.incomingTradeOffers(playerId),
-    queryFn: () => getIncomingTradeOffers(playerId!),
-    enabled: !!playerId,
-  });
-}
-
-export function useOutgoingTradeOffers(playerId: string | undefined) {
-  return useQuery({
-    queryKey: queryKeys.outgoingTradeOffers(playerId),
-    queryFn: () => getOutgoingTradeOffers(playerId!),
-    enabled: !!playerId,
-  });
-}
-
-export function usePlayerWobblinsForTrade(playerId: string | undefined) {
-  return useQuery({
-    queryKey: queryKeys.playerWobblinsForTrade(playerId),
-    queryFn: () => getPlayerWobblinsForTrade(playerId!),
-    enabled: !!playerId,
-  });
-}
-
-export function useFindPlayerByUsername() {
-  return useMutation({
-    mutationFn: (username: string) => findPlayerByUsername(username),
   });
 }
 
@@ -86,9 +54,11 @@ export function useCancelListing(playerId: string | undefined) {
 
   return useMutation({
     mutationFn: (listingId: string) => cancelListing(listingId),
-    onSuccess: () => {
+    onSuccess: (_result, listingId) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.myListings(playerId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.marketplaceListings() });
+      // Cancelling a listing cascades server-side to cancel any pending offers on it too.
+      queryClient.invalidateQueries({ queryKey: queryKeys.offersForListing(listingId) });
     },
   });
 }
@@ -107,48 +77,63 @@ export function useBuyListedWobblin(playerId: string | undefined) {
   });
 }
 
-export function useProposeTradeOffer(playerId: string | undefined) {
+export function useListWobblinForOffers(playerId: string | undefined) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      offeredWobblinId,
-      recipientId,
-      requestedWobblinId,
-    }: {
-      offeredWobblinId: string;
-      recipientId: string;
-      requestedWobblinId: string;
-    }) => proposeTradeOffer(offeredWobblinId, recipientId, requestedWobblinId),
+    mutationFn: (playerWobblinId: string) => listWobblinForOffers(playerWobblinId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.outgoingTradeOffers(playerId) });
-    },
-  });
-}
-
-export function useRespondToTradeOffer(playerId: string | undefined) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ offerId, accept }: { offerId: string; accept: boolean }) =>
-      respondToTradeOffer(offerId, accept),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.incomingTradeOffers(playerId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.outgoingTradeOffers(playerId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.playerWobblins(playerId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.featuredWobblin(playerId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.myListings(playerId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.marketplaceListings() });
     },
   });
 }
 
-export function useCancelTradeOffer(playerId: string | undefined) {
+export function useOffersForListing(listingId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.offersForListing(listingId),
+    queryFn: () => getOffersForListing(listingId!),
+    enabled: !!listingId,
+  });
+}
+
+export function useProposeWobblinOffer(playerId: string | undefined) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (offerId: string) => cancelTradeOffer(offerId),
+    mutationFn: ({ listingId, offeredWobblinIds }: { listingId: string; offeredWobblinIds: string[] }) =>
+      proposeWobblinOffer(listingId, offeredWobblinIds),
+    onSuccess: (_result, { listingId }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.offersForListing(listingId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.playerWobblins(playerId) });
+    },
+  });
+}
+
+export function useRespondToWobblinOffer(playerId: string | undefined, listingId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ offerId, accept }: { offerId: string; accept: boolean }) =>
+      respondToWobblinOffer(offerId, accept),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.outgoingTradeOffers(playerId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.offersForListing(listingId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.myListings(playerId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.marketplaceListings() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.playerWobblins(playerId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.featuredWobblin(playerId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.achievements(playerId) });
+    },
+  });
+}
+
+export function useCancelWobblinOffer(listingId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (offerId: string) => cancelWobblinOffer(offerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.offersForListing(listingId) });
     },
   });
 }

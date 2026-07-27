@@ -1,94 +1,35 @@
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/EmptyState";
 import { Icon } from "@/components/Icon";
-import { TextField } from "@/components/TextField";
-import { WobblinPickerTray } from "@/components/WobblinPickerTray";
+import { TraitBadge } from "@/components/TraitBadge";
 import { SPECIES_ART } from "@/constants/speciesArt";
 import { COLORS, ELEMENT_COLORS, ELEMENT_ICON, RARITY_COLORS, type Element, type Rarity } from "@/constants/theme";
-import { useScrollScreenContentStyle } from "@/hooks/useTabBarClearance";
-import {
-  useBuyListedWobblin,
-  useCancelListing,
-  useCancelTradeOffer,
-  useIncomingTradeOffers,
-  useListWobblinForSale,
-  useMarketplaceListings,
-  useMyListings,
-  useOutgoingTradeOffers,
-  useRespondToTradeOffer,
-} from "@/hooks/useTrades";
+import { TAB_BAR_HEIGHT, useScrollScreenContentStyle } from "@/hooks/useTabBarClearance";
+import { useBuyListedWobblin, useCancelListing, useMarketplaceListings, useMyListings } from "@/hooks/useTrades";
 import { usePlayerWobblins } from "@/hooks/useWobblins";
 import { useSupabase } from "@/supabase/SupabaseProvider";
-import type { MarketplaceListing, TradeOffer } from "@/supabase/trades";
-import type { PlayerWobblin } from "@/supabase/wobblins";
+import type { MarketplaceListing } from "@/supabase/trades";
 import { getErrorMessage } from "@/utils/errors";
 
-type Mode = "listings" | "offers";
-
 export default function TradeScreen() {
-  const router = useRouter();
   const { session } = useSupabase();
   const playerId = session?.user.id;
-  const contentStyle = useScrollScreenContentStyle(24, 1);
+  const router = useRouter();
 
-  const [mode, setMode] = useState<Mode>("listings");
-
-  return (
-    <View className="flex-1 bg-background">
-      <ScrollView className="flex-1" contentContainerStyle={contentStyle}>
-        <View className="mb-4 gap-4">
-          <Text className="font-display-bold text-3xl text-text">Trade</Text>
-          <View className="flex-row rounded-full border border-border bg-surface p-1">
-            <ModeTab label="Listings" active={mode === "listings"} onPress={() => setMode("listings")} />
-            <ModeTab label="Offers" active={mode === "offers"} onPress={() => setMode("offers")} />
-          </View>
-        </View>
-
-        {mode === "listings" ? (
-          <ListingsView playerId={playerId} />
-        ) : (
-          <OffersView playerId={playerId} onPropose={() => router.push("/trade/compose")} />
-        )}
-      </ScrollView>
-    </View>
-  );
-}
-
-function ModeTab({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      className="flex-1 items-center rounded-full py-2"
-      style={{ backgroundColor: active ? COLORS.primary : "transparent" }}
-    >
-      <Text className="font-sans-semibold text-sm" style={{ color: active ? "#ffffff" : COLORS.textMuted }}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
-function ListingsView({ playerId }: { playerId: string | undefined }) {
   const { data: listings, isPending: listingsPending } = useMarketplaceListings();
   const { data: myListings } = useMyListings(playerId);
   const { data: myWobblins } = usePlayerWobblins(playerId);
   const buyListedWobblin = useBuyListedWobblin(playerId);
   const cancelListing = useCancelListing(playerId);
-  const listWobblinForSale = useListWobblinForSale(playerId);
 
-  const [sellOpen, setSellOpen] = useState(false);
-  const [trayOpen, setTrayOpen] = useState(false);
-  const [selectedWobblinId, setSelectedWobblinId] = useState<string | null>(null);
-  const [price, setPrice] = useState("");
-  const [sellError, setSellError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [footerHeight, setFooterHeight] = useState(0);
 
   const activeMyListingWobblinIds = new Set(
     (myListings ?? []).filter((l) => l.status === "active").map((l) => l.player_wobblin_id),
@@ -96,83 +37,83 @@ function ListingsView({ playerId }: { playerId: string | undefined }) {
   const sellable = (myWobblins ?? []).filter((w) => !activeMyListingWobblinIds.has(w.id));
   const othersListings = (listings ?? []).filter((l) => l.seller_id !== playerId);
   const myActiveListings = (myListings ?? []).filter((l) => l.status === "active");
-  const selectedWobblin = sellable.find((w) => w.id === selectedWobblinId) ?? null;
 
-  const closeSellPanel = () => {
-    setSellOpen(false);
-    setSelectedWobblinId(null);
-    setPrice("");
-    setSellError(null);
-  };
+  const contentStyle = useScrollScreenContentStyle(24, 1);
 
-  const onPickWobblin = (wobblin: PlayerWobblin) => {
-    setSelectedWobblinId(wobblin.id);
-    setSellOpen(true);
-    setTrayOpen(false);
-  };
+  return (
+    <View className="flex-1 bg-background">
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ ...contentStyle, paddingBottom: contentStyle.paddingBottom + footerHeight }}
+      >
+        <ListingsView
+          listings={othersListings}
+          listingsPending={listingsPending}
+          myActiveListings={myActiveListings}
+          buyListedWobblin={buyListedWobblin}
+          cancelListing={cancelListing}
+          actionError={actionError}
+          setActionError={setActionError}
+        />
+      </ScrollView>
 
-  const onSubmitSale = () => {
-    const amount = Math.floor(Number(price));
-    if (!selectedWobblinId) {
-      setSellError("Choose a Wobblin to sell.");
-      return;
-    }
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setSellError("Enter an essence price.");
-      return;
-    }
-    setSellError(null);
-    listWobblinForSale.mutate(
-      { playerWobblinId: selectedWobblinId, priceEssence: amount },
-      {
-        onSuccess: () => closeSellPanel(),
-        onError: (err) => setSellError(getErrorMessage(err)),
-      },
-    );
-  };
+      <TradeFooter
+        sellableCount={sellable.length}
+        onChoose={() => router.push("/trade/choose-wobblin")}
+        onLayout={setFooterHeight}
+      />
+    </View>
+  );
+}
+
+function TradeFooter({
+  sellableCount,
+  onChoose,
+  onLayout,
+}: {
+  sellableCount: number;
+  onChoose: () => void;
+  onLayout: (height: number) => void;
+}) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View
+      onLayout={(e) => onLayout(e.nativeEvent.layout.height)}
+      className="absolute left-0 right-0 border-t border-border bg-surface px-6 pb-4 pt-4"
+      style={{ bottom: TAB_BAR_HEIGHT + insets.bottom }}
+    >
+      <View className="gap-1.5">
+        <Button label="Trade" onPress={onChoose} disabled={sellableCount === 0} />
+        {sellableCount === 0 && (
+          <Text className="text-center font-sans text-xs text-text-subtle">No eligible Wobblins to list.</Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function ListingsView({
+  listings: othersListings,
+  listingsPending,
+  myActiveListings,
+  buyListedWobblin,
+  cancelListing,
+  actionError,
+  setActionError,
+}: {
+  listings: MarketplaceListing[];
+  listingsPending: boolean;
+  myActiveListings: MarketplaceListing[];
+  buyListedWobblin: ReturnType<typeof useBuyListedWobblin>;
+  cancelListing: ReturnType<typeof useCancelListing>;
+  actionError: string | null;
+  setActionError: (error: string | null) => void;
+}) {
+  const router = useRouter();
 
   return (
     <View className="gap-6">
-      <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
-        <View className="flex-row items-center justify-between">
-          <Text className="font-display text-sm uppercase tracking-wide text-text-muted">Sell a Wobblin</Text>
-          {!sellOpen && (
-            <Pressable onPress={() => setTrayOpen(true)} disabled={sellable.length === 0}>
-              <Text
-                className="font-sans-semibold text-xs"
-                style={{ color: sellable.length === 0 ? COLORS.textSubtle : COLORS.primaryDark }}
-              >
-                Choose
-              </Text>
-            </Pressable>
-          )}
-        </View>
-
-        {sellable.length === 0 ? (
-          <Text className="font-sans text-sm text-text-subtle">No eligible Wobblins to list.</Text>
-        ) : sellOpen && selectedWobblin ? (
-          <View className="gap-3">
-            <SelectedWobblinRow wobblin={selectedWobblin} onChange={() => setTrayOpen(true)} />
-            <TextField
-              label="Price (essence)"
-              value={price}
-              onChangeText={setPrice}
-              keyboardType="number-pad"
-              placeholder="0"
-            />
-            <View className="flex-row gap-3">
-              <View className="flex-1">
-                <Button label="Cancel" variant="secondary" onPress={closeSellPanel} />
-              </View>
-              <View className="flex-1">
-                <Button label="List for Sale" onPress={onSubmitSale} loading={listWobblinForSale.isPending} />
-              </View>
-            </View>
-            {sellError && <Text className="font-sans-medium text-sm text-danger">{sellError}</Text>}
-          </View>
-        ) : null}
-      </View>
-
       {myActiveListings.length > 0 && (
         <View className="gap-3">
           <Text className="font-display text-sm uppercase tracking-wide text-text-muted">My Listings</Text>
@@ -185,6 +126,10 @@ function ListingsView({ playerId }: { playerId: string | undefined }) {
                 actionVariant="secondary"
                 onAction={() => cancelListing.mutate(listing.id)}
                 actionLoading={cancelListing.isPending}
+                secondaryActionLabel={listing.listing_type === "offers" ? "View Offers" : undefined}
+                onSecondaryAction={() =>
+                  router.push({ pathname: "/trade/listing-offers", params: { listingId: listing.id } })
+                }
               />
             ))}
           </View>
@@ -203,81 +148,56 @@ function ListingsView({ playerId }: { playerId: string | undefined }) {
           />
         ) : (
           <View className="flex-row flex-wrap gap-3">
-            {othersListings.map((listing) => (
-              <ListingCard
-                key={listing.id}
-                listing={listing}
-                actionLabel="Buy"
-                onAction={() => {
-                  setActionError(null);
-                  buyListedWobblin.mutate(listing.id, {
-                    onError: (err) => setActionError(getErrorMessage(err)),
-                  });
-                }}
-                actionLoading={buyListedWobblin.isPending}
-              />
-            ))}
+            {othersListings.map((listing) =>
+              listing.listing_type === "offers" ? (
+                <ListingCard
+                  key={listing.id}
+                  listing={listing}
+                  actionLabel="Make Offer"
+                  onAction={() =>
+                    router.push({ pathname: "/trade/make-offer", params: { listingId: listing.id } })
+                  }
+                />
+              ) : (
+                <ListingCard
+                  key={listing.id}
+                  listing={listing}
+                  actionLabel="Buy"
+                  onAction={() => {
+                    setActionError(null);
+                    buyListedWobblin.mutate(listing.id, {
+                      onError: (err) => setActionError(getErrorMessage(err)),
+                    });
+                  }}
+                  actionLoading={buyListedWobblin.isPending}
+                />
+              ),
+            )}
           </View>
         )}
         {actionError && <Text className="font-sans-medium text-sm text-danger">{actionError}</Text>}
       </View>
-
-      <WobblinPickerTray
-        visible={trayOpen}
-        title="Choose a Wobblin to Sell"
-        wobblins={sellable}
-        onSelect={onPickWobblin}
-        onClose={() => setTrayOpen(false)}
-        emptyLabel="No eligible Wobblins to list."
-      />
     </View>
   );
 }
 
-function SelectedWobblinRow({ wobblin, onChange }: { wobblin: PlayerWobblin; onChange: () => void }) {
-  const element = wobblin.species.element.toLowerCase() as Element;
-  const name = wobblin.nickname ?? wobblin.species.name;
-  const art = SPECIES_ART[wobblin.species.name];
-
-  return (
-    <View
-      className="flex-row items-center gap-3 rounded-xl border p-3"
-      style={{ borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight }}
-    >
-      <View
-        className="h-10 w-10 items-center justify-center rounded-full border bg-background"
-        style={{ borderColor: `${ELEMENT_COLORS[element]}66` }}
-      >
-        {art ? (
-          <Image source={art} style={{ width: "82%", height: "82%" }} contentFit="contain" />
-        ) : (
-          <Icon {...ELEMENT_ICON[element]} size={16} color={ELEMENT_COLORS[element]} />
-        )}
-      </View>
-      <View className="flex-1 gap-0.5">
-        <Text className="font-sans-semibold text-sm text-text">{name}</Text>
-        <Text className="font-sans text-xs text-text-subtle">Lv. {wobblin.level}</Text>
-      </View>
-      <Pressable onPress={onChange} accessibilityRole="button">
-        <Text className="font-sans-semibold text-xs text-primary-dark">Change</Text>
-      </Pressable>
-    </View>
-  );
-}
-
-/** Compact grid card for a marketplace listing — portrait, level, and essence price only, nothing else. */
+/** Compact grid card for a marketplace listing — portrait, level, and price (essence or "open to offers") only. */
 function ListingCard({
   listing,
   actionLabel,
   actionVariant = "primary",
   onAction,
   actionLoading = false,
+  secondaryActionLabel,
+  onSecondaryAction,
 }: {
   listing: MarketplaceListing;
   actionLabel: string;
   actionVariant?: "primary" | "secondary";
   onAction: () => void;
   actionLoading?: boolean;
+  secondaryActionLabel?: string;
+  onSecondaryAction?: () => void;
 }) {
   const element = listing.wobblin.species.element.toLowerCase() as Element;
   const rarity = listing.wobblin.species.rarity.toLowerCase() as Rarity;
@@ -320,15 +240,21 @@ function ListingCard({
         {listing.wobblin.nickname ?? listing.wobblin.species.name}
       </Text>
 
-      <View
-        className="flex-row items-center justify-center gap-1 rounded-full border py-1"
-        style={{ borderColor: `${COLORS.essence}40`, backgroundColor: `${COLORS.essence}14` }}
-      >
-        <Icon family="ionicons" name="flash" size={12} color={COLORS.essence} />
-        <Text className="font-sans-bold text-xs" style={{ color: COLORS.essence }}>
-          {listing.price_essence}
-        </Text>
-      </View>
+      {listing.listing_type === "offers" ? (
+        <View className="items-center">
+          <TraitBadge label="Open to Offers" color={COLORS.primary} />
+        </View>
+      ) : (
+        <View
+          className="flex-row items-center justify-center gap-1 rounded-full border py-1"
+          style={{ borderColor: `${COLORS.essence}40`, backgroundColor: `${COLORS.essence}14` }}
+        >
+          <Icon family="ionicons" name="flash" size={12} color={COLORS.essence} />
+          <Text className="font-sans-bold text-xs" style={{ color: COLORS.essence }}>
+            {listing.price_essence}
+          </Text>
+        </View>
+      )}
 
       <Pressable
         onPress={onAction}
@@ -348,148 +274,17 @@ function ListingCard({
           </Text>
         )}
       </Pressable>
-    </View>
-  );
-}
 
-function OffersView({ playerId, onPropose }: { playerId: string | undefined; onPropose: () => void }) {
-  const { data: incoming } = useIncomingTradeOffers(playerId);
-  const { data: outgoing } = useOutgoingTradeOffers(playerId);
-  const respondToTradeOffer = useRespondToTradeOffer(playerId);
-  const cancelTradeOffer = useCancelTradeOffer(playerId);
-  const [error, setError] = useState<string | null>(null);
-
-  const pendingIncoming = (incoming ?? []).filter((o) => o.status === "pending");
-  const pendingOutgoing = (outgoing ?? []).filter((o) => o.status === "pending");
-
-  const onRespond = (offerId: string, accept: boolean) => {
-    setError(null);
-    respondToTradeOffer.mutate(
-      { offerId, accept },
-      {
-        onSuccess: (result) => {
-          if (!result.success) setError("This trade is no longer valid — one of the Wobblins already moved.");
-        },
-        onError: (err) => setError(getErrorMessage(err)),
-      },
-    );
-  };
-
-  return (
-    <View className="gap-6">
-      <Button label="Propose a Trade" onPress={onPropose} />
-
-      <View className="gap-3">
-        <Text className="font-display text-sm uppercase tracking-wide text-text-muted">Incoming</Text>
-        {pendingIncoming.length === 0 ? (
-          <Text className="font-sans text-sm text-text-subtle">No incoming offers.</Text>
-        ) : (
-          pendingIncoming.map((offer) => (
-            <OfferRow
-              key={offer.id}
-              offer={offer}
-              perspective="incoming"
-              actions={
-                <View className="flex-row gap-3">
-                  <View className="flex-1">
-                    <Button
-                      label="Decline"
-                      variant="secondary"
-                      onPress={() => onRespond(offer.id, false)}
-                      loading={respondToTradeOffer.isPending}
-                    />
-                  </View>
-                  <View className="flex-1">
-                    <Button
-                      label="Accept"
-                      onPress={() => onRespond(offer.id, true)}
-                      loading={respondToTradeOffer.isPending}
-                    />
-                  </View>
-                </View>
-              }
-            />
-          ))
-        )}
-      </View>
-
-      <View className="gap-3">
-        <Text className="font-display text-sm uppercase tracking-wide text-text-muted">Outgoing</Text>
-        {pendingOutgoing.length === 0 ? (
-          <Text className="font-sans text-sm text-text-subtle">No outgoing offers.</Text>
-        ) : (
-          pendingOutgoing.map((offer) => (
-            <OfferRow
-              key={offer.id}
-              offer={offer}
-              perspective="outgoing"
-              actions={
-                <Button
-                  label="Withdraw"
-                  variant="secondary"
-                  onPress={() => cancelTradeOffer.mutate(offer.id)}
-                  loading={cancelTradeOffer.isPending}
-                />
-              }
-            />
-          ))
-        )}
-      </View>
-
-      {error && <Text className="font-sans-medium text-sm text-danger">{error}</Text>}
-    </View>
-  );
-}
-
-function OfferRow({
-  offer,
-  perspective,
-  actions,
-}: {
-  offer: TradeOffer;
-  perspective: "incoming" | "outgoing";
-  actions: ReactNode;
-}) {
-  const mine = perspective === "incoming" ? offer.requested_wobblin : offer.offered_wobblin;
-  const theirs = perspective === "incoming" ? offer.offered_wobblin : offer.requested_wobblin;
-  const counterparty = perspective === "incoming" ? offer.proposer : offer.recipient;
-
-  return (
-    <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
-      <Text className="font-sans-medium text-xs text-text-subtle">
-        {perspective === "incoming" ? `${counterparty.username} offers:` : `You offered ${counterparty.username}:`}
-      </Text>
-      <View className="flex-row items-center gap-3">
-        <OfferWobblinChip wobblin={theirs} label={perspective === "incoming" ? "Their Wobblin" : "Your Wobblin"} />
-        <Icon family="ionicons" name="swap-horizontal" size={18} color={COLORS.textSubtle} />
-        <OfferWobblinChip wobblin={mine} label={perspective === "incoming" ? "Your Wobblin" : "Their Wobblin"} />
-      </View>
-      {actions}
-    </View>
-  );
-}
-
-function OfferWobblinChip({ wobblin, label }: { wobblin: PlayerWobblin; label: string }) {
-  const element = wobblin.species.element.toLowerCase() as Element;
-  const art = SPECIES_ART[wobblin.species.name];
-  const name = wobblin.nickname ?? wobblin.species.name;
-
-  return (
-    <View className="flex-1 items-center gap-1">
-      <View
-        className="h-12 w-12 items-center justify-center rounded-full border bg-background"
-        style={{ borderColor: `${ELEMENT_COLORS[element]}66` }}
-      >
-        {art ? (
-          <Image source={art} style={{ width: "78%", height: "78%" }} contentFit="contain" />
-        ) : (
-          <Icon {...ELEMENT_ICON[element]} size={20} color={ELEMENT_COLORS[element]} />
-        )}
-      </View>
-      <Text numberOfLines={1} className="font-sans-semibold text-xs text-text">
-        {name}
-      </Text>
-      <Text className="font-sans text-[10px] text-text-subtle">{label}</Text>
+      {secondaryActionLabel && onSecondaryAction && (
+        <Pressable
+          onPress={onSecondaryAction}
+          accessibilityRole="button"
+          className="items-center rounded-lg py-2"
+          style={{ backgroundColor: COLORS.surfaceRaised }}
+        >
+          <Text className="font-sans-bold text-xs text-text">{secondaryActionLabel}</Text>
+        </Pressable>
+      )}
     </View>
   );
 }

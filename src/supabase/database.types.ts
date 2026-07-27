@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievement_definitions: {
+        Row: {
+          description: string
+          id: string
+          key: string
+          metric: string
+          name: string
+          reward_essence: number
+          sort_order: number
+          target: number
+          tier: string
+        }
+        Insert: {
+          description: string
+          id?: string
+          key: string
+          metric: string
+          name: string
+          reward_essence: number
+          sort_order: number
+          target: number
+          tier: string
+        }
+        Update: {
+          description?: string
+          id?: string
+          key?: string
+          metric?: string
+          name?: string
+          reward_essence?: number
+          sort_order?: number
+          target?: number
+          tier?: string
+        }
+        Relationships: []
+      }
       eggs: {
         Row: {
           claimed_at: string
@@ -120,8 +156,9 @@ export type Database = {
           cancelled_at: string | null
           created_at: string
           id: string
+          listing_type: string
           player_wobblin_id: string
-          price_essence: number
+          price_essence: number | null
           seller_id: string
           sold_at: string | null
           sold_to: string | null
@@ -131,8 +168,9 @@ export type Database = {
           cancelled_at?: string | null
           created_at?: string
           id?: string
+          listing_type?: string
           player_wobblin_id: string
-          price_essence: number
+          price_essence?: number | null
           seller_id: string
           sold_at?: string | null
           sold_to?: string | null
@@ -142,8 +180,9 @@ export type Database = {
           cancelled_at?: string | null
           created_at?: string
           id?: string
+          listing_type?: string
           player_wobblin_id?: string
-          price_essence?: number
+          price_essence?: number | null
           seller_id?: string
           sold_at?: string | null
           sold_to?: string | null
@@ -181,6 +220,125 @@ export type Database = {
           {
             foreignKeyName: "marketplace_listings_sold_to_fkey"
             columns: ["sold_to"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketplace_offer_wobblins: {
+        Row: {
+          offer_id: string
+          player_wobblin_id: string
+        }
+        Insert: {
+          offer_id: string
+          player_wobblin_id: string
+        }
+        Update: {
+          offer_id?: string
+          player_wobblin_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_offer_wobblins_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_offers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_offer_wobblins_player_wobblin_id_fkey"
+            columns: ["player_wobblin_id"]
+            isOneToOne: false
+            referencedRelation: "player_wobblins"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketplace_offers: {
+        Row: {
+          buyer_id: string
+          created_at: string
+          id: string
+          listing_id: string
+          resolved_at: string | null
+          status: string
+        }
+        Insert: {
+          buyer_id: string
+          created_at?: string
+          id?: string
+          listing_id: string
+          resolved_at?: string | null
+          status?: string
+        }
+        Update: {
+          buyer_id?: string
+          created_at?: string
+          id?: string
+          listing_id?: string
+          resolved_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_offers_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "player_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_offers_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_offers_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      player_achievement_claims: {
+        Row: {
+          achievement_id: string
+          claimed_at: string
+          player_id: string
+        }
+        Insert: {
+          achievement_id: string
+          claimed_at?: string
+          player_id: string
+        }
+        Update: {
+          achievement_id?: string
+          claimed_at?: string
+          player_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_achievement_claims_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievement_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_achievement_claims_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "player_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_achievement_claims_player_id_fkey"
+            columns: ["player_id"]
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
@@ -255,6 +413,12 @@ export type Database = {
           id: string
           last_daily_essence_claim_date: string | null
           onboarding_completed: boolean
+          total_eggs_hatched_count: number
+          total_essence_earned: number
+          total_evolutions_count: number
+          total_marketplace_sales_count: number
+          total_shop_purchases_count: number
+          total_trades_completed_count: number
           username: string
         }
         Insert: {
@@ -266,6 +430,12 @@ export type Database = {
           id: string
           last_daily_essence_claim_date?: string | null
           onboarding_completed?: boolean
+          total_eggs_hatched_count?: number
+          total_essence_earned?: number
+          total_evolutions_count?: number
+          total_marketplace_sales_count?: number
+          total_shop_purchases_count?: number
+          total_trades_completed_count?: number
           username: string
         }
         Update: {
@@ -277,6 +447,12 @@ export type Database = {
           id?: string
           last_daily_essence_claim_date?: string | null
           onboarding_completed?: boolean
+          total_eggs_hatched_count?: number
+          total_essence_earned?: number
+          total_evolutions_count?: number
+          total_marketplace_sales_count?: number
+          total_shop_purchases_count?: number
+          total_trades_completed_count?: number
           username?: string
         }
         Relationships: [
@@ -377,82 +553,6 @@ export type Database = {
           week_start?: string
         }
         Relationships: []
-      }
-      trade_offers: {
-        Row: {
-          created_at: string
-          id: string
-          offered_wobblin_id: string
-          proposer_id: string
-          recipient_id: string
-          requested_wobblin_id: string
-          resolved_at: string | null
-          status: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          offered_wobblin_id: string
-          proposer_id: string
-          recipient_id: string
-          requested_wobblin_id: string
-          resolved_at?: string | null
-          status?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          offered_wobblin_id?: string
-          proposer_id?: string
-          recipient_id?: string
-          requested_wobblin_id?: string
-          resolved_at?: string | null
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "trade_offers_offered_wobblin_id_fkey"
-            columns: ["offered_wobblin_id"]
-            isOneToOne: false
-            referencedRelation: "player_wobblins"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "trade_offers_proposer_id_fkey"
-            columns: ["proposer_id"]
-            isOneToOne: false
-            referencedRelation: "player_public_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "trade_offers_proposer_id_fkey"
-            columns: ["proposer_id"]
-            isOneToOne: false
-            referencedRelation: "players"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "trade_offers_recipient_id_fkey"
-            columns: ["recipient_id"]
-            isOneToOne: false
-            referencedRelation: "player_public_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "trade_offers_recipient_id_fkey"
-            columns: ["recipient_id"]
-            isOneToOne: false
-            referencedRelation: "players"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "trade_offers_requested_wobblin_id_fkey"
-            columns: ["requested_wobblin_id"]
-            isOneToOne: false
-            referencedRelation: "player_wobblins"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       wobblin_level_xp_requirements: {
         Row: {
@@ -582,7 +682,11 @@ export type Database = {
       }
       buy_listed_wobblin: { Args: { p_listing_id: string }; Returns: Json }
       cancel_listing: { Args: { p_listing_id: string }; Returns: Json }
-      cancel_trade_offer: { Args: { p_offer_id: string }; Returns: Json }
+      cancel_wobblin_offer: { Args: { p_offer_id: string }; Returns: Json }
+      claim_achievement_reward: {
+        Args: { p_achievement_id: string }
+        Returns: Json
+      }
       claim_daily_essence: { Args: never; Returns: Json }
       claim_egg: { Args: { p_player_wobblin_id: string }; Returns: Json }
       claim_passive_essence: { Args: never; Returns: Json }
@@ -590,6 +694,23 @@ export type Database = {
       feed_egg_essence: {
         Args: { p_egg_id: string; p_essence_amount: number }
         Returns: Json
+      }
+      get_player_achievements: {
+        Args: never
+        Returns: {
+          claimed: boolean
+          current_value: number
+          description: string
+          id: string
+          key: string
+          metric: string
+          name: string
+          reward_essence: number
+          sort_order: number
+          target: number
+          tier: string
+          unlocked: boolean
+        }[]
       }
       get_weekly_shop: { Args: never; Returns: Json }
       hatch_egg: {
@@ -612,20 +733,20 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      list_wobblin_for_offers: {
+        Args: { p_player_wobblin_id: string }
+        Returns: Json
+      }
       list_wobblin_for_sale: {
         Args: { p_player_wobblin_id: string; p_price_essence: number }
         Returns: Json
       }
-      propose_trade_offer: {
-        Args: {
-          p_offered_wobblin_id: string
-          p_recipient_id: string
-          p_requested_wobblin_id: string
-        }
+      propose_wobblin_offer: {
+        Args: { p_listing_id: string; p_offered_wobblin_ids: string[] }
         Returns: Json
       }
       purchase_shop_listing: { Args: { p_listing_id: string }; Returns: Json }
-      respond_to_trade_offer: {
+      respond_to_wobblin_offer: {
         Args: { p_accept: boolean; p_offer_id: string }
         Returns: Json
       }

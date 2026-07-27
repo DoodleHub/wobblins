@@ -1,48 +1,23 @@
-import { Image } from "expo-image";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, Text, TextInput, useWindowDimensions, View } from "react-native";
 
+import { ElementFilterRow, ELEMENT_ORDER, type ElementFilterValue } from "@/components/ElementFilterRow";
 import { EmptyState } from "@/components/EmptyState";
 import { Icon, type IconSpec } from "@/components/Icon";
 import { Skeleton } from "@/components/Skeleton";
-import { SPECIES_ART } from "@/constants/speciesArt";
-import { COLORS, ELEMENT_COLORS, ELEMENT_ICON, RARITY_COLORS, type Element, type Rarity } from "@/constants/theme";
+import { WobblinGridCard } from "@/components/WobblinGridCard";
+import { COLORS, ELEMENT_COLORS, ELEMENT_ICON, type Element } from "@/constants/theme";
 import { useFeedEggEssence, useHatchEgg, useMyEggs } from "@/hooks/useEggs";
 import { useEssenceConfig } from "@/hooks/useEssence";
 import { useScrollScreenContentStyle } from "@/hooks/useTabBarClearance";
 import { useAllSpecies, usePlayerWobblins } from "@/hooks/useWobblins";
 import type { Egg } from "@/supabase/eggs";
 import { useSupabase } from "@/supabase/SupabaseProvider";
-import type { PlayerWobblin } from "@/supabase/wobblins";
 import { getErrorMessage } from "@/utils/errors";
 
-type FilterValue = "all" | Element;
-
-const ALL_ICON: IconSpec = { family: "ionicons", name: "grid" };
 const SEARCH_ICON: IconSpec = { family: "ionicons", name: "search" };
 const FILTER_ICON: IconSpec = { family: "ionicons", name: "options" };
-
-const FILTERS: { value: FilterValue; label: string; icon: IconSpec }[] = [
-  { value: "all", label: "All", icon: ALL_ICON },
-  { value: "fire", label: "Fire", icon: ELEMENT_ICON.fire },
-  { value: "water", label: "Water", icon: ELEMENT_ICON.water },
-  { value: "grass", label: "Grass", icon: ELEMENT_ICON.grass },
-  { value: "thunder", label: "Thunder", icon: ELEMENT_ICON.thunder },
-  { value: "dark", label: "Dark", icon: ELEMENT_ICON.dark },
-  { value: "ice", label: "Ice", icon: ELEMENT_ICON.ice },
-  { value: "rock", label: "Rock", icon: ELEMENT_ICON.rock },
-  { value: "wind", label: "Wind", icon: ELEMENT_ICON.wind },
-  { value: "light", label: "Light", icon: ELEMENT_ICON.light },
-  { value: "poison", label: "Poison", icon: ELEMENT_ICON.poison },
-];
-
-/** Canonical element display order, reused to sort the collection by element/evolution group. */
-const ELEMENT_ORDER: Record<Element, number> = Object.fromEntries(
-  FILTERS.filter((option): option is { value: Element; label: string; icon: IconSpec } => option.value !== "all").map(
-    (option, index) => [option.value, index],
-  ),
-) as Record<Element, number>;
 
 const SCREEN_PADDING = 24;
 const CARD_GAP = 12;
@@ -72,7 +47,7 @@ export default function CollectionScreen() {
     }, [refetchWobblins, refetchEggs]),
   );
   const unhatchedEggs = useMemo(() => (eggs ?? []).filter((egg) => !egg.hatched_at), [eggs]);
-  const [filter, setFilter] = useState<FilterValue>("all");
+  const [filter, setFilter] = useState<ElementFilterValue>("all");
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
   const contentStyle = useScrollScreenContentStyle(CARD_GAP);
@@ -154,7 +129,7 @@ export default function CollectionScreen() {
               feeding={feedEggEssence.isPending}
             />
           )}
-          {wobblins && wobblins.length > 0 && <FilterRow value={filter} onChange={setFilter} />}
+          {wobblins && wobblins.length > 0 && <ElementFilterRow value={filter} onChange={setFilter} />}
         </View>
       }
       ListEmptyComponent={
@@ -221,45 +196,6 @@ function SearchField({ value, onChange }: { value: string; onChange: (value: str
         autoFocus
         className="flex-1 font-sans text-sm text-text"
       />
-    </View>
-  );
-}
-
-function FilterRow({
-  value,
-  onChange,
-}: {
-  value: FilterValue;
-  onChange: (value: FilterValue) => void;
-}) {
-  return (
-    <View className="flex-row flex-wrap gap-2">
-      {FILTERS.map((option) => {
-        const selected = option.value === value;
-        const color = option.value === "all" ? COLORS.primary : ELEMENT_COLORS[option.value];
-
-        return (
-          <Pressable
-            key={option.value}
-            onPress={() => onChange(option.value)}
-            accessibilityRole="button"
-            accessibilityState={{ selected }}
-            className="flex-row items-center gap-1.5 rounded-full border px-3 py-1.5"
-            style={{
-              borderColor: selected ? color : COLORS.border,
-              backgroundColor: selected ? color : COLORS.surface,
-            }}
-          >
-            <Icon {...option.icon} size={13} color={selected ? "#ffffff" : color} />
-            <Text
-              className="font-sans-semibold text-xs capitalize"
-              style={{ color: selected ? "#ffffff" : COLORS.textMuted }}
-            >
-              {option.label}
-            </Text>
-          </Pressable>
-        );
-      })}
     </View>
   );
 }
@@ -395,62 +331,6 @@ function EggRow({
         </View>
       )}
     </View>
-  );
-}
-
-function WobblinGridCard({ wobblin, width }: { wobblin: PlayerWobblin; width: number }) {
-  const router = useRouter();
-
-  const element = wobblin.species.element.toLowerCase() as Element;
-  const rarity = wobblin.species.rarity.toLowerCase() as Rarity;
-  const name = wobblin.nickname ?? wobblin.species.name;
-  const elementColor = ELEMENT_COLORS[element];
-  const rarityColor = RARITY_COLORS[rarity];
-  const art = SPECIES_ART[wobblin.species.name];
-
-  return (
-    <Pressable
-      onPress={() => router.push(`/wobblin/${wobblin.id}`)}
-      accessibilityRole="button"
-      accessibilityLabel={name}
-      className="gap-1 overflow-hidden rounded-2xl border p-2"
-      style={{
-        width,
-        borderColor: `${rarityColor}55`,
-        backgroundColor: `${rarityColor}14`,
-      }}
-    >
-      <View className="aspect-square items-center justify-end">
-        {art ? (
-          <Image source={art} style={{ width: "100%", height: "78%" }} contentFit="contain" />
-        ) : (
-          <View
-            className="h-14 w-14 items-center justify-center rounded-full border bg-background"
-            style={{ borderColor: `${elementColor}66` }}
-          >
-            <Icon {...ELEMENT_ICON[element]} size={24} color={elementColor} />
-          </View>
-        )}
-        <View
-          className="absolute left-0 top-0 rounded-full px-2 py-0.5"
-          style={{ backgroundColor: `${COLORS.background}cc` }}
-        >
-          <Text className="font-sans-bold text-[11px] text-text">Lv. {wobblin.level}</Text>
-        </View>
-        <View
-          className="absolute right-0 top-0 h-6 w-6 items-center justify-center rounded-full"
-          style={{ backgroundColor: `${COLORS.background}cc` }}
-        >
-          <Icon {...ELEMENT_ICON[element]} size={12} color={elementColor} />
-        </View>
-      </View>
-
-      <View className="px-0.5 pb-0.5">
-        <Text numberOfLines={1} className="text-center font-display-bold text-sm text-text">
-          {name}
-        </Text>
-      </View>
-    </Pressable>
   );
 }
 
