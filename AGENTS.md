@@ -35,7 +35,7 @@ The central experience is: **complete tasks for people in your group, earn their
 
 Tasks create opportunities for monsters to move between users. Duplicate monsters create progression through sacrifice. Final evolutions create new eggs and keep the monster economy active. The database and game systems matter more than visuals — the MVP should not require expensive artwork or animation.
 
-**Known gap:** uniqueness between two players' same-species Wobblins currently comes only from level/evolution stage and nickname — `sacrifice_wobblin`/`add_wobblin_xp` only update `level`/`experience`, never `hp`/`attack`/`defense`/`speed`, so a Wobblin's stats stay pinned at its species' base values forever regardless of how much it's leveled. The evolution stat-carryover formula in `evolve_wobblin` still exists (see below) but is currently a no-op in practice since nothing grows a stat above base anymore. If restoring per-Wobblin stat differentiation matters, the natural fix is small stat growth per level inside `sacrifice_wobblin`/`add_wobblin_xp` — this hasn't been decided yet, so don't assume stats currently mean anything beyond flavor/display.
+**Uniqueness between two players' same-species Wobblins comes only from level, evolution stage, and nickname.** There is no per-instance stats system at all — `player_wobblins` has no `hp`/`attack`/`defense`/`speed` columns (removed; see "Removed systems"). `wobblin_species.base_hp`/`base_attack`/`base_defense`/`base_speed` are still there as flavor/reference data (shown on the starter-selection picker to help compare species archetypes) but nothing per-owned-Wobblin ever diverges from them, so don't build a feature that assumes an individual Wobblin can have stats different from its species.
 
 ---
 
@@ -74,7 +74,7 @@ Each domain has a `src/supabase/<domain>.ts` file of plain async functions (call
 
 ## Reusable components (actual)
 
-`Button`, `MonsterCard`, `StatBar`, `XPBar`, `TraitBadge` (used for element/rarity pills), `TextField`, `LevelUpBanner`, `EvolutionBanner`, `RewardToast` (generic icon/title/subtitle toast — no gold field anymore, currency doesn't exist), `EmptyState`, `LoadingScreen`, `Skeleton`, `ComingSoonScreen`. Reuse these instead of building new ad hoc cards/badges/loaders. `AchievementTray` and `HexBadge`/`HexIconBadge` were deleted along with the achievements/player-level systems they supported — don't reintroduce them without a reason to re-add those systems.
+`Button`, `MonsterCard`, `XPBar`, `TraitBadge` (used for element/rarity pills), `TextField`, `LevelUpBanner`, `EvolutionBanner`, `RewardToast` (generic icon/title/subtitle toast — no gold field anymore, currency doesn't exist), `EmptyState`, `LoadingScreen`, `Skeleton`, `ComingSoonScreen`. Reuse these instead of building new ad hoc cards/badges/loaders. `AchievementTray`, `HexBadge`/`HexIconBadge`, and `StatBar` were deleted along with the achievements/player-level/per-instance-stats systems they supported — don't reintroduce them without a reason to re-add those systems. `MonsterCard`'s level label reads "Lv. N" (not "Level N") — match that phrasing in any new UI that shows a Wobblin's level as a standalone label (full sentences like "Unlocks at level 15" are fine as prose).
 
 ---
 
@@ -101,9 +101,9 @@ Every mechanic that affects monster ownership, stats, or randomness/timing is a 
 - `review_task(p_task_id, p_approve, p_resolution_note)` — validates the caller is the creator and the task is `submitted`. On approval, transfers `player_wobblins.player_id` to the accepter and clears the lock; on rejection, just clears the lock (ownership never left the creator).
 - `cancel_task(p_task_id)` — creator-only, allowed while `open`/`accepted`/`submitted`; clears the reward lock.
 - `sacrifice_wobblin(p_target_wobblin_id, p_consumed_wobblin_id)` — validates both Wobblins are owned by the caller, unlocked, not the same row, and share the same `evolution_chain_id`; grants the target XP (via `add_wobblin_xp`) and permanently deletes the consumed row.
-- `evolve_wobblin(p_player_wobblin_id)` — validates ownership, that the species has a next stage, the Wobblin's level meets `evolution_level`, and it isn't locked; carries stat growth-above-base forward onto the new species' base stats (currently a no-op in practice — see the Product Philosophy gap above).
+- `evolve_wobblin(p_player_wobblin_id)` — validates ownership, that the species has a next stage, the Wobblin's level meets `evolution_level`, and it isn't locked; just repoints `species_id` to the next stage (no stats to carry over — see the Product Philosophy note above).
 - `claim_egg(p_player_wobblin_id)` — validates ownership and that the species is Stage 2, and that `now() - coalesce(last_egg_claimed_at, created_at) >= egg_cadence_hours`; inserts an `eggs` row for the chain's Stage 0 species and updates the checkpoint.
-- `hatch_egg(p_egg_id)` — validates ownership and that the egg hasn't hatched yet, then inserts a new `player_wobblins` row from the egg's species base stats.
+- `hatch_egg(p_egg_id)` — validates ownership and that the egg hasn't hatched yet, then inserts a new `player_wobblins` row for the egg's species (just `player_id`/`species_id` — no stats to set).
 - `add_wobblin_xp(p_player_wobblin_id, p_xp)` — internal-only leveling-curve helper (see incident note below); `src/utils/xp.ts` (`getXpProgress`) is a client-side **mirror** of the same curve (`cumulativeXp(level) = 100 * level * (level+1) / 2`) purely for rendering XP bars — it must stay in sync if the curve changes server-side.
 - `handle_new_user()` — trigger on `auth.users` insert that creates the placeholder `players` row.
 
@@ -142,13 +142,14 @@ Static species/evolution-chain definitions: `id, name (unique), element, rarity,
 
 ## player_wobblins
 
-Owned Wobblins: `id, player_id, species_id, nickname, level, experience, hp, attack, defense, speed, created_at, locked_reason, last_egg_claimed_at`.
+Owned Wobblins: `id, player_id, species_id, nickname, level, experience, created_at, acquired_at, locked_reason, last_egg_claimed_at`.
 
 - `locked_reason` is nullable, `CHECK (locked_reason IN ('task_reward'))` — set by `create_task`, cleared by `review_task`/`cancel_task`. A locked Wobblin cannot evolve, be sacrificed, be offered as another task's reward, or have its ownership transferred by anything except the task RPCs.
 - `last_egg_claimed_at` is only meaningful when the species is stage 2; `claim_egg` reads `coalesce(last_egg_claimed_at, created_at)` as the cadence checkpoint.
-- **No `training_points` column** — the training system was removed; the only way to change a Wobblin's level is `sacrifice_wobblin`.
+- `acquired_at` is when the **current** owner came to own this row — distinct from `created_at` (when the row was first created). They match at creation (starter pick, egg hatch) but diverge on a task-reward transfer: `review_task` sets `acquired_at = now()` on approval without touching `created_at`. Anything ordering/displaying "how long has this player had this Wobblin" (the Home/Collection "featured"/newest-first fallback logic, the Monster Detail screen's date chip) must use `acquired_at`, not `created_at` — using `created_at` would show/sort by the *previous* owner's acquisition time for a transferred Wobblin.
+- **No `hp`/`attack`/`defense`/`speed` columns** — removed along with the per-instance stats concept (see the Product Philosophy note above). **No `training_points` column** — the training system was removed; the only way to change a Wobblin's level is `sacrifice_wobblin`.
 
-The Home screen's "featured Wobblin" is `players.active_wobblin_id` if set (via the "Set as Featured" button on the Monster Detail screen), falling back to the player's oldest (`created_at asc`, limit 1) Wobblin — i.e. the starter — if they haven't chosen one. `active_wobblin_id` is set with a plain table update (RLS-gated, not an RPC) since it's just an ownership pointer, not a value needing server-side derivation; `getFeaturedWobblin` re-filters by `player_id` when reading it back so a spoofed id can't surface another player's Wobblin.
+The Home screen's "featured Wobblin" is `players.active_wobblin_id` if set (via the "Set as Featured" button on the Monster Detail screen, disabled while the Wobblin is locked as a task reward), falling back to the player's first-acquired (`acquired_at asc`, limit 1) Wobblin — i.e. the starter — if they haven't chosen one. `active_wobblin_id` is set with a plain table update (RLS-gated, not an RPC) since it's just an ownership pointer, not a value needing server-side derivation; `getFeaturedWobblin` re-filters by `player_id` when reading it back so a spoofed id can't surface another player's Wobblin.
 
 ## groups
 
@@ -160,9 +161,9 @@ The Home screen's "featured Wobblin" is `players.active_wobblin_id` if set (via 
 
 ## tasks
 
-`id, group_id, creator_id, title, description, reward_wobblin_id (FK -> player_wobblins), status, accepted_by (nullable), accepted_at, submitted_at, submission_note (nullable), resolved_at, resolution_note (nullable), expires_at (nullable, currently unused by any RPC — see "Current Status"), created_at`.
+`id, group_id, creator_id, title, description, reward_wobblin_id (FK -> player_wobblins), status, accepted_by (nullable), accepted_at, submitted_at, submission_note (nullable), resolved_at, resolution_note (nullable), created_at`.
 
-`status` is one of `open`, `accepted`, `submitted`, `approved`, `rejected`, `cancelled`, `expired` (the `expired` value exists in the CHECK constraint but nothing currently transitions a task into it — see below). A partial unique index (`tasks_active_reward_wobblin_idx`) enforces that a given `reward_wobblin_id` can only be referenced by one **active** (`open`/`accepted`/`submitted`) task at a time.
+`status` is one of `open`, `accepted`, `submitted`, `approved`, `rejected`, `cancelled`. A partial unique index (`tasks_active_reward_wobblin_idx`) enforces that a given `reward_wobblin_id` can only be referenced by one **active** (`open`/`accepted`/`submitted`) task at a time. **No `expires_at` column and no `'expired'` status** — a task-expiry feature was scoped early in the revamp but never wired to any RPC, so the placeholder column/status value were dropped rather than left inert; if task expiry gets built, it needs a fresh migration (plus deciding the mechanism — a lazy check inside the task RPCs, mirroring the old energy-regen lazy-tick pattern, or a `pg_cron` job, which is available in the project but not installed).
 
 ## eggs
 
@@ -170,7 +171,7 @@ The Home screen's "featured Wobblin" is `players.active_wobblin_id` if set (via 
 
 ## Tables that do NOT exist (do not assume otherwise)
 
-`battles`, `locations`, `achievements`, `player_achievements` were all dropped in the 2026-07-26 revamp along with the systems they supported. There is no moves/attacks system, no items/inventory system, no `trait_1`/`trait_2` columns, no currency (`gold`) anywhere, and no energy system. Any older doc language implying otherwise (including earlier versions of this file) describes the pre-revamp app, not current state.
+`battles`, `locations`, `achievements`, `player_achievements` were all dropped in the 2026-07-26 revamp along with the systems they supported. There is no moves/attacks system, no items/inventory system, no `trait_1`/`trait_2` columns, no currency (`gold`) anywhere, and no energy system. `player_wobblins.hp`/`attack`/`defense`/`speed` and `tasks.expires_at` were dropped in a later cleanup pass once it was clear nothing used them (see "player_wobblins" and "tasks" above). Any older doc language implying otherwise (including earlier versions of this file) describes a prior state, not current.
 
 ---
 
@@ -180,14 +181,14 @@ The Home screen's "featured Wobblin" is `players.active_wobblin_id` if set (via 
 |---|---|
 | `/login`, `/signup` | Email/password auth only. **No Google/Apple sign-in is implemented.** |
 | `/character-creation` | Username + one of 3 emoji avatars (Explorer/Mage/Knight, `src/constants/avatars.ts`). Persisted to `players.username`/`players.avatar` via `completeCharacterCreation`. |
-| `/starter-selection` | Pick 1 of the seeded stage-0 `wobblin_species` as a starter; creates a `player_wobblins` row at the species' base stats. This is still the only way a brand-new player gets their first Wobblin — there's no wild-capture flow anymore. |
-| `(tabs)/index` (Home) | Player header (avatar + username, no level/gold/energy — none of that exists anymore) + an "Active Tasks" summary (tasks the player created or accepted that haven't reached a final state, across every group) + the featured Wobblin card. |
+| `/starter-selection` | Pick 1 of the seeded stage-0 `wobblin_species` as a starter; creates a `player_wobblins` row for it (base stats are shown here for comparison, read from `wobblin_species`, but nothing per-instance is stored). This is still the only way a brand-new player gets their first Wobblin — there's no wild-capture flow anymore. |
+| `(tabs)/index` (Home) | Player header (avatar + username, no level/gold/energy — none of that exists anymore) + an "Active Tasks" summary (tasks the player created or accepted that haven't reached a final state, across every group) + the featured Wobblin card (glowing portrait + Lv./XP bar only, no stats — matches the Monster Detail redesign). Refetches on focus (player, featured Wobblin, active tasks) for the same reason as Collection below. |
 | `(tabs)/groups` | List of the player's groups; "Create Group" and "Join Group" (invite-code entry) actions. Replaces the old `(tabs)/explore` tab. |
 | `/group/[id]` | Members list, shareable invite code (with a native Share sheet), and the group's task feed (all tasks regardless of status); "Create Task" CTA. |
 | `/group/[id]/create-task` | Title/description fields + a picker of the caller's own unlocked Wobblins to offer as the reward. |
 | `/task/[id]` | Task detail: reward Wobblin card, status pill, and the role-appropriate action — Accept (open, not-creator), Submit-with-optional-note (accepted, accepter), Approve/Reject-with-optional-note (submitted, creator), Cancel (creator, while open/accepted/submitted). |
 | `(tabs)/collection` | Grid of owned Wobblins with element filter chips, filtered client-side over the already-fetched list, plus an "Eggs Ready to Hatch" strip above the grid for any unhatched `eggs` rows. Refetches on focus (see the React Query note above) so it doesn't show stale data after a sacrifice/evolve/task-approval performed on another screen. |
-| `/wobblin/[id]` (Monster Detail) | Stats, XP bar, "Set as Featured", a locked-as-task-reward banner when applicable, an Evolution panel (shown if the species has a next stage), a "Sacrifice Duplicates" panel (multi-select same-chain Wobblins to consume in one batch, sorted lowest-stage-first), and — for stage-2 Wobblins — an Eggs panel with a cadence countdown and "Claim Egg" button. No training UI, no Battle button (neither system exists). |
+| `/wobblin/[id]` (Monster Detail) | Hero card (portrait with an element-tinted glow, name + "Lv. N" pill, element/rarity badges, a caught/acquired-date chip, and the XP bar — the only stat that still exists); "Set as Featured" (disabled with a lock icon while the Wobblin is locked as a task reward); a locked-as-task-reward banner, owner-only, tappable through to the specific task (going back instead of pushing a duplicate screen if that's where the user came from); an Evolution panel (shown if the species has a next stage); a "Sacrifice Duplicates" panel (multi-select same-chain Wobblins to consume in one batch, sorted lowest-stage-first); and — for stage-2 Wobblins — an Eggs panel with a cadence countdown and "Claim Egg" button. No stats panel, no training UI, no Battle button (none of those systems exist). |
 | `(tabs)/profile` | Avatar, username, join date, Wobblins-owned count, Groups-joined count, Sign Out. No gold/energy/achievements — none of that exists. |
 | `/supabase-test` | Dev-only connectivity check screen; not part of the player-facing flow. |
 
@@ -207,11 +208,11 @@ Any signed-in player can create a group (`create_group`, becoming its `owner` in
 
 The core loop: a group member creates a task (`create_task`) offering one of their own unlocked Wobblins as the reward, which locks it. Another member (not the creator) accepts it (`accept_task`), completes it in the real world, and submits it with an optional note (`submit_task`). The creator then reviews it (`review_task`): approving transfers the reward Wobblin's ownership to the accepter and clears the lock; rejecting just clears the lock (ownership never left the creator, since it only ever transfers on approval). The creator can also cancel a task any time before it's resolved (`cancel_task`), which clears the lock the same way a rejection does. A reward Wobblin can only be attached to one active task at a time (enforced by a partial unique index, not just application logic).
 
-**Task expiry is a known gap** — `tasks.expires_at` and the `'expired'` status value exist in the schema, but no RPC or scheduled job currently transitions a task into that state. See "Current Status" below.
+**Task expiry is not implemented** — it was scoped out and its schema placeholder (`expires_at`/`'expired'` status) was later removed rather than left dormant. See "Current Status" below if picking this up.
 
 ## Evolution Chains
 
-Each of the 10 elemental lines has 3 stages (0/1/2) linked via `wobblin_species.evolves_into_id`/`evolution_level`, grouped by `evolution_chain_id`. `evolve_wobblin` requires the Wobblin's level to meet the next stage's `evolution_level`, that it isn't locked as a task reward, and carries forward any stat growth above the old species' base onto the new species' (higher) base — see the Product Philosophy note on why this is currently a no-op in practice.
+Each of the 10 elemental lines has 3 stages (0/1/2) linked via `wobblin_species.evolves_into_id`/`evolution_level`, grouped by `evolution_chain_id`. `evolve_wobblin` requires the Wobblin's level to meet the next stage's `evolution_level` and that it isn't locked as a task reward, then simply repoints `species_id` to the next stage — there are no per-instance stats to carry over (see the Product Philosophy note above).
 
 ## Duplicate-Monster Sacrifice & Leveling
 
@@ -229,7 +230,7 @@ Exploration/locations, energy (and its regen-on-read pattern), wild-encounter ca
 
 # Visual Constraints
 
-The MVP requires minimal images — icons, emoji, SVG shapes, gradient/glow cards, stat bars, and the existing illustrated species portraits (`src/constants/speciesArt.ts`). Keep new UI consistent with this: no large new image-asset pipelines, no animated battle scenes (there's no battle system to animate).
+The MVP requires minimal images — icons, emoji, SVG shapes, gradient/glow cards, progress bars, and the existing illustrated species portraits (`src/constants/speciesArt.ts`). Keep new UI consistent with this: no large new image-asset pipelines, no animated battle scenes (there's no battle system to animate).
 
 ---
 
@@ -242,12 +243,12 @@ Dark fantasy mobile aesthetic: dark backgrounds (`COLORS.background = #0c0d16`),
 # Security
 
 - Every table has RLS enabled — verify this holds for any new table (`get_advisors` after migrating).
-- Anything that mutates monster ownership, locking, stats, or timing-gated rewards (eggs) must go through a Postgres RPC that re-derives values server-side (see the RPC pattern above); never trust client-computed values for these fields.
+- Anything that mutates monster ownership, locking, level/XP, or timing-gated rewards (eggs) must go through a Postgres RPC that re-derives values server-side (see the RPC pattern above); never trust client-computed values for these fields.
 - `players` has no client-facing INSERT policy — rows are created only by the `auth.users` trigger. `group_members` similarly has no client-facing INSERT policy — rows are created only by `create_group`/`join_group`.
 - **Every new function's grants must be checked with `has_function_privilege` against `anon`, not just reasoned about** — see the grants incident note above. `revoke ... from public` is not sufficient in this project because of its default-privileges configuration.
 - `get_advisors(type: "security")` flags externally-callable `SECURITY DEFINER` functions but won't catch a missing ownership check inside one, so review new RPCs for an explicit `auth.uid()` check matching `sacrifice_wobblin`/`create_task`/etc.
 - `player_wobblins` SELECT has two policies: owner-only, plus a second one making a Wobblin visible to any member of a group where it's referenced as a task's `reward_wobblin_id` (so an accepter can see what they're working toward before it's theirs). `players` similarly has a second SELECT policy making a profile visible to anyone sharing a group with that player (needed to show usernames on task/group screens) — `is_group_member`-style policies like this are why that helper function exists.
-- The `players`/`player_wobblins` UPDATE policies are row-scoped, not column-scoped — RLS policies gate rows, not columns. `avatar`/`active_wobblin_id` are safe to update directly from the client because they're not values that need server-side derivation. There is intentionally **no** client-facing UPDATE policy on `player_wobblins` at all — every mutation to level/stats/species/locked_reason/ownership goes through a `SECURITY DEFINER` RPC instead.
+- The `players`/`player_wobblins` UPDATE policies are row-scoped, not column-scoped — RLS policies gate rows, not columns. `avatar`/`active_wobblin_id` are safe to update directly from the client because they're not values that need server-side derivation. There is intentionally **no** client-facing UPDATE policy on `player_wobblins` at all — every mutation to level/species/locked_reason/ownership goes through a `SECURITY DEFINER` RPC instead.
 
 ---
 
@@ -262,8 +263,8 @@ Trading, guilds, breeding, PvP matchmaking, marketplace, real-time multiplayer, 
 Already working: auth, onboarding (with persisted username + avatar), starter selection, private groups with shareable invite codes, the full task lifecycle (create/accept/submit/review/cancel) with secure ownership transfer on approval, duplicate-sacrifice leveling (single or multi-select), evolution through 3 stages, final-evolution egg generation (claim + hatch as distinct steps), a Collection screen with an eggs section, and a real Profile screen.
 
 Remaining gaps worth knowing about before extending the game (not commitments, just the honest state):
-- **Stats don't currently grow from leveling** — see the Product Philosophy note above. Sacrifice-driven leveling only changes `level`/`experience`, never `hp`/`attack`/`defense`/`speed`, so same-species Wobblins are stat-identical regardless of level. Needs a design decision before fixing.
-- **No task expiry** — `tasks.expires_at`/`'expired'` status exist in the schema but nothing sets or checks them yet. Would need either a lazy check inside the task RPCs (mirroring the old energy-regen lazy-tick pattern) or a `pg_cron` job (available in the project, not installed).
+- **There is no per-instance stats system at all** (removed, not just dormant — see the Product Philosophy note above and "Tables that do NOT exist"). If per-Wobblin differentiation beyond level/stage/nickname is wanted later, it needs a fresh migration (re-add stat columns, decide a growth formula, wire it into `sacrifice_wobblin`/`evolve_wobblin`) rather than resuming dormant infrastructure — there isn't any anymore.
+- **No task expiry** — scoped out; `tasks.expires_at`/`'expired'` status were removed rather than left as an unused placeholder. Needs a fresh migration if this gets built (see "tasks" above for the mechanism options).
 - **No task submission evidence beyond a free-text note** — no photo attachment, matching the "no image asset pipeline" visual constraint, but worth confirming that's still the right call as the feature matures.
 - Login/signup copy still says "Monster Realms" in a couple of places — a cosmetic leftover from an earlier project name predating even the original monster-collection RPG; unrelated to the 2026-07-26 revamp.
 - The `players`/`player_wobblins` RLS UPDATE policies are row-scoped, not column-scoped — see the note under "Security" above.

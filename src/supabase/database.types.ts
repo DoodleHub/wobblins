@@ -137,11 +137,8 @@ export type Database = {
       player_wobblins: {
         Row: {
           acquired_at: string
-          attack: number
           created_at: string
-          defense: number
           experience: number
-          hp: number
           id: string
           last_egg_claimed_at: string | null
           level: number
@@ -149,15 +146,11 @@ export type Database = {
           nickname: string | null
           player_id: string
           species_id: string
-          speed: number
         }
         Insert: {
           acquired_at?: string
-          attack: number
           created_at?: string
-          defense: number
           experience?: number
-          hp: number
           id?: string
           last_egg_claimed_at?: string | null
           level?: number
@@ -165,15 +158,11 @@ export type Database = {
           nickname?: string | null
           player_id: string
           species_id: string
-          speed: number
         }
         Update: {
           acquired_at?: string
-          attack?: number
           created_at?: string
-          defense?: number
           experience?: number
-          hp?: number
           id?: string
           last_egg_claimed_at?: string | null
           level?: number
@@ -181,7 +170,6 @@ export type Database = {
           nickname?: string | null
           player_id?: string
           species_id?: string
-          speed?: number
         }
         Relationships: [
           {
@@ -242,7 +230,6 @@ export type Database = {
           created_at: string
           creator_id: string
           description: string
-          expires_at: string | null
           group_id: string
           id: string
           resolution_note: string | null
@@ -259,7 +246,6 @@ export type Database = {
           created_at?: string
           creator_id: string
           description?: string
-          expires_at?: string | null
           group_id: string
           id?: string
           resolution_note?: string | null
@@ -276,7 +262,6 @@ export type Database = {
           created_at?: string
           creator_id?: string
           description?: string
-          expires_at?: string | null
           group_id?: string
           id?: string
           resolution_note?: string | null
@@ -397,7 +382,6 @@ export type Database = {
           created_at: string
           creator_id: string
           description: string
-          expires_at: string | null
           group_id: string
           id: string
           resolution_note: string | null
@@ -419,11 +403,8 @@ export type Database = {
         Args: { p_player_wobblin_id: string; p_xp: number }
         Returns: {
           acquired_at: string
-          attack: number
           created_at: string
-          defense: number
           experience: number
-          hp: number
           id: string
           last_egg_claimed_at: string | null
           level: number
@@ -431,7 +412,6 @@ export type Database = {
           nickname: string | null
           player_id: string
           species_id: string
-          speed: number
         }
         SetofOptions: {
           from: "*"
@@ -448,7 +428,6 @@ export type Database = {
           created_at: string
           creator_id: string
           description: string
-          expires_at: string | null
           group_id: string
           id: string
           resolution_note: string | null
@@ -496,7 +475,6 @@ export type Database = {
           created_at: string
           creator_id: string
           description: string
-          expires_at: string | null
           group_id: string
           id: string
           resolution_note: string | null
@@ -519,11 +497,8 @@ export type Database = {
         Args: { p_egg_id: string }
         Returns: {
           acquired_at: string
-          attack: number
           created_at: string
-          defense: number
           experience: number
-          hp: number
           id: string
           last_egg_claimed_at: string | null
           level: number
@@ -531,7 +506,6 @@ export type Database = {
           nickname: string | null
           player_id: string
           species_id: string
-          speed: number
         }
         SetofOptions: {
           from: "*"
@@ -569,7 +543,6 @@ export type Database = {
           created_at: string
           creator_id: string
           description: string
-          expires_at: string | null
           group_id: string
           id: string
           resolution_note: string | null
@@ -599,7 +572,6 @@ export type Database = {
           created_at: string
           creator_id: string
           description: string
-          expires_at: string | null
           group_id: string
           id: string
           resolution_note: string | null

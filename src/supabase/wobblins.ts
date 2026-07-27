@@ -97,15 +97,11 @@ export async function getAllSpecies() {
   return data;
 }
 
-/** Creates the player's starter `player_wobblins` row from a species' base stats. */
+/** Creates the player's starter `player_wobblins` row for a chosen species. */
 export async function createStarterWobblin(playerId: string, species: WobblinSpecies) {
   const { error } = await supabase.from("player_wobblins").insert({
     player_id: playerId,
     species_id: species.id,
-    hp: species.base_hp,
-    attack: species.base_attack,
-    defense: species.base_defense,
-    speed: species.base_speed,
   });
 
   if (error) throw error;
