@@ -11,14 +11,12 @@ export type RewardToastData = {
   icon: IconSpec;
   title: string;
   subtitle?: string;
-  goldAwarded?: number;
 };
 
 /**
- * A brief celebratory toast for achievement unlocks and the daily login
- * reward — same pop-in/hold/fade animation as `LevelUpBanner`, generalized
- * to an icon/title/subtitle/gold shape so both flows share one component
- * instead of near-duplicate banners.
+ * A brief celebratory toast for one-off events (task approvals, egg claims,
+ * etc.) — same pop-in/hold/fade animation as `LevelUpBanner`, generalized to
+ * an icon/title/subtitle shape so callers don't need a near-duplicate banner.
  */
 /**
  * `offsetTop` is extra space *below the safe area* — use it to stack this
@@ -58,19 +56,16 @@ export function RewardToast({
       style={{ top: insets.top + offsetTop, zIndex: 50 }}
     >
       <Animated.View
-        className="flex-row items-center gap-3 rounded-2xl border border-gold/40 bg-surface px-5 py-3 shadow-lg"
+        className="flex-row items-center gap-3 rounded-2xl border border-secondary/40 bg-surface px-5 py-3 shadow-lg"
         style={{ opacity: anim, transform: [{ scale }] }}
       >
-        <Icon {...reward.icon} size={26} color={COLORS.gold} />
+        <Icon {...reward.icon} size={26} color={COLORS.secondary} />
         <View className="gap-0.5">
           <Text className="font-display-bold text-base text-text">{reward.title}</Text>
           {reward.subtitle && (
             <Text className="font-sans-medium text-xs text-text-muted">{reward.subtitle}</Text>
           )}
         </View>
-        {!!reward.goldAwarded && (
-          <Text className="font-sans-bold text-sm text-gold">+{reward.goldAwarded}g</Text>
-        )}
       </Animated.View>
     </View>
   );

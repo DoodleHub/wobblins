@@ -85,10 +85,10 @@ export const RARITY_COLORS: Record<Rarity, string> = {
 /**
  * Blends two opaque hex colors into a third opaque hex color. Used instead of
  * an alpha (`${color}33`) tint anywhere a solid fill has to visually match
- * across adjacent shapes built from different primitives (e.g. `HexIconBadge`'s
- * border-triangle + background-rect construction) — translucent borders and
- * translucent background fills don't composite identically in RN, which shows
- * up as a visible seam between the two even when given the same rgba value.
+ * across adjacent shapes built from different primitives — translucent
+ * borders and translucent background fills don't composite identically in
+ * RN, which shows up as a visible seam between the two even when given the
+ * same rgba value.
  */
 export function mixColors(base: string, tint: string, ratio: number): string {
   const b = parseInt(base.slice(1), 16);

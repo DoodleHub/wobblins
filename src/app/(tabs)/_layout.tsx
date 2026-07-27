@@ -8,14 +8,14 @@ import { TAB_BAR_HEIGHT } from "@/hooks/useTabBarClearance";
 
 const ICONS: Record<string, ComponentProps<typeof Ionicons>["name"]> = {
   index: "home",
-  explore: "compass",
+  groups: "people",
   collection: "library",
   profile: "person",
 };
 
 const ICONS_OUTLINE: Record<string, ComponentProps<typeof Ionicons>["name"]> = {
   index: "home-outline",
-  explore: "compass-outline",
+  groups: "people-outline",
   collection: "library-outline",
   profile: "person-outline",
 };
@@ -63,7 +63,7 @@ export default function TabsLayout() {
       })}
     >
       <Tabs.Screen name="index" options={{ title: "Home" }} />
-      <Tabs.Screen name="explore" options={{ title: "Explore" }} />
+      <Tabs.Screen name="groups" options={{ title: "Groups" }} />
       <Tabs.Screen name="collection" options={{ title: "Collection" }} />
       <Tabs.Screen name="profile" options={{ title: "Profile" }} />
     </Tabs>

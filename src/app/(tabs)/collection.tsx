@@ -1,15 +1,17 @@
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
-import { FlatList, Pressable, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
+import { ActivityIndicator, FlatList, Pressable, Text, TextInput, useWindowDimensions, View } from "react-native";
 
 import { EmptyState } from "@/components/EmptyState";
 import { Icon, type IconSpec } from "@/components/Icon";
 import { Skeleton } from "@/components/Skeleton";
 import { SPECIES_ART } from "@/constants/speciesArt";
 import { COLORS, ELEMENT_COLORS, ELEMENT_ICON, RARITY_COLORS, type Element, type Rarity } from "@/constants/theme";
+import { useHatchEgg, useMyEggs } from "@/hooks/useEggs";
 import { useScrollScreenContentStyle } from "@/hooks/useTabBarClearance";
 import { useAllSpecies, usePlayerWobblins } from "@/hooks/useWobblins";
+import type { Egg } from "@/supabase/eggs";
 import { useSupabase } from "@/supabase/SupabaseProvider";
 import type { PlayerWobblin } from "@/supabase/wobblins";
 import { getErrorMessage } from "@/utils/errors";
@@ -50,8 +52,23 @@ export default function CollectionScreen() {
   const { width } = useWindowDimensions();
   const cardWidth = (width - SCREEN_PADDING * 2 - CARD_GAP * 2) / 3;
 
-  const { data: wobblins, isPending, error } = usePlayerWobblins(playerId);
+  const { data: wobblins, isPending, error, refetch: refetchWobblins } = usePlayerWobblins(playerId);
   const { data: allSpecies } = useAllSpecies();
+  const { data: eggs, refetch: refetchEggs } = useMyEggs(playerId);
+  const hatchEgg = useHatchEgg(playerId);
+
+  // Tab screens (and any screen underneath a pushed stack route) can be frozen by the
+  // navigator while unfocused — a cache update that lands while this screen is frozen
+  // (e.g. a sacrifice performed on the Wobblin detail screen) doesn't reliably repaint
+  // once the freeze lifts. Refetching on focus is the standard, deterministic fix rather
+  // than relying on the frozen screen to pick up an already-updated cache on its own.
+  useFocusEffect(
+    useCallback(() => {
+      refetchWobblins();
+      refetchEggs();
+    }, [refetchWobblins, refetchEggs]),
+  );
+  const unhatchedEggs = useMemo(() => (eggs ?? []).filter((egg) => !egg.hatched_at), [eggs]);
   const [filter, setFilter] = useState<FilterValue>("all");
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -109,6 +126,9 @@ export default function CollectionScreen() {
             </View>
           </View>
           {searchOpen && <SearchField value={search} onChange={setSearch} />}
+          {unhatchedEggs.length > 0 && (
+            <EggsStrip eggs={unhatchedEggs} onHatch={(eggId) => hatchEgg.mutate(eggId)} hatching={hatchEgg.isPending} />
+          )}
           {wobblins && wobblins.length > 0 && <FilterRow value={filter} onChange={setFilter} />}
         </View>
       }
@@ -119,7 +139,7 @@ export default function CollectionScreen() {
           description={
             wobblins && wobblins.length > 0
               ? "Try a different filter."
-              : "Explore to discover and capture your first Wobblin."
+              : "Complete tasks for your group to earn your first Wobblins."
           }
         />
       }
@@ -219,6 +239,60 @@ function FilterRow({
   );
 }
 
+function EggsStrip({
+  eggs,
+  onHatch,
+  hatching,
+}: {
+  eggs: Egg[];
+  onHatch: (eggId: string) => void;
+  hatching: boolean;
+}) {
+  return (
+    <View className="gap-2 rounded-2xl border border-secondary/40 bg-secondary/10 p-3">
+      <View className="flex-row items-center gap-1.5">
+        <Icon family="material-community" name="egg-easter" size={15} color={COLORS.secondary} />
+        <Text className="font-display text-sm uppercase tracking-wide text-secondary-dark">
+          Eggs Ready to Hatch
+        </Text>
+      </View>
+      <View className="gap-2">
+        {eggs.map((egg) => (
+          <View
+            key={egg.id}
+            className="flex-row items-center gap-3 rounded-xl border border-border bg-surface p-2.5"
+          >
+            <View
+              className="h-10 w-10 items-center justify-center rounded-full border bg-background"
+              style={{ borderColor: `${ELEMENT_COLORS[egg.species.element.toLowerCase() as Element]}66` }}
+            >
+              <Icon
+                {...ELEMENT_ICON[egg.species.element.toLowerCase() as Element]}
+                size={18}
+                color={ELEMENT_COLORS[egg.species.element.toLowerCase() as Element]}
+              />
+            </View>
+            <Text className="flex-1 font-sans-semibold text-sm text-text">{egg.species.name} Egg</Text>
+            <Pressable
+              onPress={() => onHatch(egg.id)}
+              disabled={hatching}
+              accessibilityRole="button"
+              className="rounded-full bg-secondary px-3 py-1.5"
+              style={{ opacity: hatching ? 0.6 : 1 }}
+            >
+              {hatching ? (
+                <ActivityIndicator size="small" color="#0c0d16" />
+              ) : (
+                <Text className="font-sans-bold text-xs text-background">Hatch</Text>
+              )}
+            </Pressable>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 function WobblinGridCard({ wobblin, width }: { wobblin: PlayerWobblin; width: number }) {
   const router = useRouter();
 
@@ -228,22 +302,38 @@ function WobblinGridCard({ wobblin, width }: { wobblin: PlayerWobblin; width: nu
   const elementColor = ELEMENT_COLORS[element];
   const rarityColor = RARITY_COLORS[rarity];
   const art = SPECIES_ART[wobblin.species.name];
+  const isLocked = wobblin.locked_reason != null;
 
   return (
     <Pressable
       onPress={() => router.push(`/wobblin/${wobblin.id}`)}
       accessibilityRole="button"
+      accessibilityLabel={isLocked ? `${name}, locked as a task reward` : name}
       className="gap-2 overflow-hidden rounded-2xl border p-2"
-      style={{ width, borderColor: `${rarityColor}55`, backgroundColor: `${rarityColor}14` }}
+      style={{
+        width,
+        borderColor: isLocked ? `${COLORS.gold}66` : `${rarityColor}55`,
+        backgroundColor: isLocked ? `${COLORS.gold}14` : `${rarityColor}14`,
+      }}
     >
-      <View
-        className="h-6 w-6 items-center justify-center rounded-full border"
-        style={{ borderColor: `${elementColor}66`, backgroundColor: `${elementColor}22` }}
-      >
-        <Icon {...ELEMENT_ICON[element]} size={12} color={elementColor} />
+      <View className="flex-row items-center justify-between">
+        <View
+          className="h-6 w-6 items-center justify-center rounded-full border"
+          style={{ borderColor: `${elementColor}66`, backgroundColor: `${elementColor}22` }}
+        >
+          <Icon {...ELEMENT_ICON[element]} size={12} color={elementColor} />
+        </View>
+        {isLocked && (
+          <View
+            className="h-6 w-6 items-center justify-center rounded-full border"
+            style={{ borderColor: `${COLORS.gold}66`, backgroundColor: `${COLORS.gold}33` }}
+          >
+            <Icon family="ionicons" name="lock-closed" size={11} color={COLORS.gold} />
+          </View>
+        )}
       </View>
 
-      <View className="aspect-square items-center justify-center">
+      <View className="aspect-square items-center justify-center" style={{ opacity: isLocked ? 0.6 : 1 }}>
         {art ? (
           <Image source={art} style={{ width: "100%", height: "100%" }} contentFit="contain" />
         ) : (
@@ -260,7 +350,7 @@ function WobblinGridCard({ wobblin, width }: { wobblin: PlayerWobblin; width: nu
         <Text numberOfLines={1} className="font-display-bold text-sm text-text">
           {name}
         </Text>
-        <Text className="font-sans-medium text-xs text-text-muted">Level {wobblin.level}</Text>
+        <Text className="font-sans-medium text-xs text-text-muted">Lv. {wobblin.level}</Text>
       </View>
     </Pressable>
   );

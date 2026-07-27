@@ -1,62 +1,50 @@
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/EmptyState";
-import { HexBadge } from "@/components/HexBadge";
-import { Icon, type IconSpec } from "@/components/Icon";
+import { Icon } from "@/components/Icon";
 import { LevelUpBanner } from "@/components/LevelUpBanner";
 import { MonsterCard } from "@/components/MonsterCard";
-import { RewardToast } from "@/components/RewardToast";
 import { Skeleton } from "@/components/Skeleton";
-import { StatBar } from "@/components/StatBar";
 import { XPBar } from "@/components/XPBar";
 import { PLAYER_PORTRAIT } from "@/constants/avatars";
 import { SPECIES_ART } from "@/constants/speciesArt";
-import { COLORS, ELEMENT_ICON, type Element, type Rarity } from "@/constants/theme";
-import { useClaimDailyReward } from "@/hooks/useDailyReward";
+import { COLORS, ELEMENT_COLORS, ELEMENT_ICON, type Element, type Rarity } from "@/constants/theme";
 import { usePlayer } from "@/hooks/usePlayer";
 import { useScrollScreenContentStyle } from "@/hooks/useTabBarClearance";
+import { useMyActiveTasks } from "@/hooks/useTasks";
 import { useFeaturedWobblin } from "@/hooks/useWobblins";
 import type { Player } from "@/supabase/players";
 import { useSupabase } from "@/supabase/SupabaseProvider";
+import type { Task } from "@/supabase/tasks";
 import type { FeaturedWobblin } from "@/supabase/wobblins";
-import { getMaxEnergy } from "@/utils/energy";
 import { getErrorMessage } from "@/utils/errors";
-import { dailyRewardToReward } from "@/utils/rewardToast";
 
 export default function HomeScreen() {
+  const router = useRouter();
   const { session } = useSupabase();
   const playerId = session?.user.id;
 
-  // No focus-based refetching needed: mutations elsewhere (spend energy,
-  // battle rewards) invalidate these same query keys, and since the tab
-  // navigator keeps this screen mounted, React Query refetches it in the
-  // background the moment that happens — even while another tab is active.
-  const { data: player, isPending: playerPending, error: playerError } = usePlayer(playerId);
-  const { data: featured } = useFeaturedWobblin(playerId);
+  const { data: player, isPending: playerPending, error: playerError, refetch: refetchPlayer } = usePlayer(playerId);
+  const { data: featured, refetch: refetchFeatured } = useFeaturedWobblin(playerId);
+  const { data: activeTasks, refetch: refetchActiveTasks } = useMyActiveTasks(playerId);
+
+  // Home stays mounted underneath every pushed screen (task review, sacrifice, evolve,
+  // set-featured), so a mutation performed there can invalidate this screen's queries
+  // while it's frozen and not repaint until it's focused again — refetch on focus rather
+  // than relying on that. Same pattern as Collection/Group detail.
+  useFocusEffect(
+    useCallback(() => {
+      refetchPlayer();
+      refetchFeatured();
+      refetchActiveTasks();
+    }, [refetchPlayer, refetchFeatured, refetchActiveTasks]),
+  );
 
   const [levelUp, setLevelUp] = useState<number | null>(null);
-
-  // Claim the daily login bonus once per app session. `claim_daily_reward` is
-  // idempotent per calendar day, so this is safe even if the effect somehow
-  // re-ran — the ref just avoids firing the RPC on every re-render.
-  const claimDailyReward = useClaimDailyReward(playerId);
-  const claimedRef = useRef(false);
-
-  useEffect(() => {
-    if (!playerId || claimedRef.current) return;
-    claimedRef.current = true;
-    claimDailyReward.mutate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerId]);
-
-  const dailyReward = useMemo(
-    () => (claimDailyReward.data ? dailyRewardToReward(claimDailyReward.data) : null),
-    [claimDailyReward.data],
-  );
 
   const loading = playerPending;
   const error = playerError ? getErrorMessage(playerError) : null;
@@ -65,7 +53,6 @@ export default function HomeScreen() {
   return (
     <View className="flex-1 bg-background">
       <LevelUpBanner level={levelUp} />
-      <RewardToast reward={dailyReward} offsetTop={76} />
       <ScrollView className="flex-1" contentContainerStyle={contentStyle}>
         {loading || !player ? (
           error ? (
@@ -77,7 +64,8 @@ export default function HomeScreen() {
           )
         ) : (
           <>
-            <PlayerHeader player={player} onLevelUp={setLevelUp} />
+            <PlayerHeader player={player} />
+            <ActiveTasksCard tasks={activeTasks ?? []} playerId={playerId} onOpen={(id) => router.push(`/task/${id}`)} />
             <FeaturedWobblinCard featured={featured ?? null} onLevelUp={setLevelUp} />
             {error && (
               <View className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3">
@@ -91,53 +79,92 @@ export default function HomeScreen() {
   );
 }
 
-function PlayerHeader({ player, onLevelUp }: { player: Player; onLevelUp: (level: number) => void }) {
+function PlayerHeader({ player }: { player: Player }) {
   return (
-    <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
-      <View className="flex-row items-center justify-between">
-        <View className="flex-row items-center gap-3">
-          <View>
-            <Image
-              source={PLAYER_PORTRAIT}
-              style={{ width: 64, height: 64, borderRadius: 32 }}
-              contentFit="cover"
-            />
-            <View className="absolute -bottom-1 -right-1 h-6 w-6 items-center justify-center rounded-full border border-border bg-surface-raised">
-              <Icon family="ionicons" name="pencil" size={12} color={COLORS.textMuted} />
-            </View>
-          </View>
-          <View className="gap-0.5">
-            <Text className="font-display-bold text-2xl text-text">{player.username}</Text>
-            <Text className="font-sans-medium text-sm text-primary-dark">Level {player.level}</Text>
-          </View>
+    <View className="flex-row items-center gap-3 rounded-2xl border border-border bg-surface p-4">
+      <View>
+        <Image
+          source={PLAYER_PORTRAIT}
+          style={{ width: 56, height: 56, borderRadius: 28 }}
+          contentFit="cover"
+        />
+        <View className="absolute -bottom-1 -right-1 h-6 w-6 items-center justify-center rounded-full border border-border bg-surface-raised">
+          <Icon family="ionicons" name="pencil" size={12} color={COLORS.textMuted} />
         </View>
-        <HexBadge value={player.level} />
       </View>
-
-      <View className="h-px bg-border" />
-
-      <View className="flex-row items-center gap-4">
-        <Stat
-          icon={{ family: "material-community", name: "gold" }}
-          iconColor={COLORS.gold}
-          label="Gold"
-          value={player.gold.toLocaleString()}
-          className="text-gold"
-        />
-        <View className="h-8 w-px bg-border" />
-        <Stat
-          icon={{ family: "ionicons", name: "flash" }}
-          iconColor={COLORS.energy}
-          label="Energy"
-          value={`${player.energy}/${getMaxEnergy(player.level)}`}
-          className="text-energy"
-        />
+      <View className="gap-0.5">
+        <Text className="font-display-bold text-2xl text-text">{player.username}</Text>
+        <Text className="font-sans-medium text-sm text-text-muted">Welcome back</Text>
       </View>
-
-      <View className="h-px bg-border" />
-
-      <XPBar level={player.level} experience={player.experience} onLevelUp={onLevelUp} />
     </View>
+  );
+}
+
+function ActiveTasksCard({
+  tasks,
+  playerId,
+  onOpen,
+}: {
+  tasks: Task[];
+  playerId: string | undefined;
+  onOpen: (taskId: string) => void;
+}) {
+  if (tasks.length === 0) return null;
+
+  return (
+    <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
+      <View className="flex-row items-center gap-1.5">
+        <Icon family="ionicons" name="clipboard" size={15} color={COLORS.primaryDark} />
+        <Text className="font-display text-sm uppercase tracking-wide text-text-muted">Active Tasks</Text>
+      </View>
+      <View className="gap-2">
+        {tasks.slice(0, 5).map((task) => (
+          <ActiveTaskRow key={task.id} task={task} playerId={playerId} onPress={() => onOpen(task.id)} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function ActiveTaskRow({
+  task,
+  playerId,
+  onPress,
+}: {
+  task: Task;
+  playerId: string | undefined;
+  onPress: () => void;
+}) {
+  const isCreator = task.creator_id === playerId;
+  let waitingOn = "Open — waiting for someone to accept";
+  if (task.status === "accepted") {
+    waitingOn = isCreator ? `Waiting on ${task.acceptor?.username ?? "acceptor"}` : "Waiting on you to submit";
+  } else if (task.status === "submitted") {
+    waitingOn = isCreator ? "Waiting on your review" : "Submitted — awaiting review";
+  }
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      className="flex-row items-center gap-3 rounded-xl border border-border bg-surface-raised p-3"
+    >
+      <View
+        className="h-9 w-9 items-center justify-center rounded-full"
+        style={{ backgroundColor: COLORS.primaryLight }}
+      >
+        <Icon family="ionicons" name="clipboard-outline" size={16} color={COLORS.primaryDark} />
+      </View>
+      <View className="flex-1 gap-0.5">
+        <Text className="font-sans-semibold text-sm text-text" numberOfLines={1}>
+          {task.title}
+        </Text>
+        <Text className="font-sans text-xs text-text-subtle" numberOfLines={1}>
+          {waitingOn}
+        </Text>
+      </View>
+      <Icon family="ionicons" name="chevron-forward" size={16} color={COLORS.textSubtle} />
+    </Pressable>
   );
 }
 
@@ -165,6 +192,7 @@ function FeaturedWobblinCard({
 
   const element = featured.species.element.toLowerCase() as Element;
   const rarity = featured.species.rarity.toLowerCase() as Rarity;
+  const elementColor = ELEMENT_COLORS[element];
   const name = featured.nickname ?? featured.species.name;
   const art = SPECIES_ART[featured.species.name];
 
@@ -174,86 +202,48 @@ function FeaturedWobblinCard({
       level={featured.level}
       element={element}
       rarity={rarity}
-      eyebrow="Active Wobblin"
+      eyebrow="Featured Wobblin"
       onPress={() => router.push(`/wobblin/${featured.id}`)}
     >
-      <View className="flex-row items-center gap-4">
-        <View className="flex-1 gap-3">
-          <StatBar
-            label="HP"
-            value={featured.hp}
-            max={featured.hp}
-            color={COLORS.hp}
-            icon={{ family: "ionicons", name: "heart" }}
-            valuePosition="below"
-          />
-          <XPBar
-            level={featured.level}
-            experience={featured.experience}
-            onLevelUp={onLevelUp}
-            showLevel={false}
-            icon={{ family: "ionicons", name: "star" }}
-            valuePosition="below"
-          />
-        </View>
-        {art ? (
-          <Image source={art} style={{ width: 140, height: 170 }} contentFit="contain" />
-        ) : (
+      <View className="items-center py-1">
+        <View style={{ width: 168, height: 168 }} className="items-center justify-center">
           <View
-            className="h-32 w-32 items-center justify-center rounded-full border bg-background"
-            style={{ borderColor: `${COLORS.textSubtle}33` }}
-          >
-            <Icon {...ELEMENT_ICON[element]} size={48} color={COLORS.textSubtle} />
-          </View>
-        )}
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              width: 118,
+              height: 118,
+              borderRadius: 59,
+              backgroundColor: elementColor,
+              opacity: 0.3,
+              shadowColor: elementColor,
+              shadowOpacity: 0.85,
+              shadowRadius: 32,
+              shadowOffset: { width: 0, height: 0 },
+              elevation: 6,
+            }}
+          />
+          {art ? (
+            <Image source={art} style={{ width: "100%", height: "100%" }} contentFit="contain" />
+          ) : (
+            <View
+              className="h-32 w-32 items-center justify-center rounded-full border-2 bg-background"
+              style={{ borderColor: elementColor }}
+            >
+              <Icon {...ELEMENT_ICON[element]} size={48} color={elementColor} />
+            </View>
+          )}
+        </View>
       </View>
 
-      <View className="h-px bg-border" />
-
-      <View className="flex-row">
-        <StatColumn icon={{ family: "material-community", name: "sword" }} label="Attack" value={featured.attack} />
-        <View className="w-px bg-border" />
-        <StatColumn icon={{ family: "ionicons", name: "shield-outline" }} label="Defense" value={featured.defense} />
-        <View className="w-px bg-border" />
-        <StatColumn icon={{ family: "material-community", name: "feather" }} label="Speed" value={featured.speed} />
-      </View>
+      <XPBar
+        level={featured.level}
+        experience={featured.experience}
+        onLevelUp={onLevelUp}
+        showLevel={false}
+        icon={{ family: "ionicons", name: "star" }}
+      />
     </MonsterCard>
-  );
-}
-
-function StatColumn({ icon, label, value }: { icon: IconSpec; label: string; value: number }) {
-  return (
-    <View className="flex-1 items-center gap-1">
-      <View className="flex-row items-center gap-1.5">
-        <Icon {...icon} size={16} color={COLORS.textMuted} />
-        <Text className="font-sans-medium text-sm text-text-muted">{label}</Text>
-      </View>
-      <Text className="font-display-bold text-xl text-text">{value}</Text>
-    </View>
-  );
-}
-
-function Stat({
-  icon,
-  iconColor,
-  label,
-  value,
-  className,
-}: {
-  icon?: IconSpec;
-  iconColor?: string;
-  label: string;
-  value: string;
-  className: string;
-}) {
-  return (
-    <View className="flex-row items-center gap-2">
-      {icon && <Icon {...icon} size={18} color={iconColor} />}
-      <View className="gap-0.5">
-        <Text className="font-sans text-xs text-text-subtle">{label}</Text>
-        <Text className={`font-sans-bold text-base ${className}`}>{value}</Text>
-      </View>
-    </View>
   );
 }
 
@@ -268,7 +258,6 @@ function HomeSkeleton() {
           </View>
           <Skeleton className="h-12 w-12 rounded-full" />
         </View>
-        <Skeleton className="h-2 w-full rounded-full" />
       </View>
       <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
         <View className="flex-row items-center gap-4">

@@ -77,7 +77,7 @@ export function MonsterCard({
       {avatar}
       <View className="items-center gap-1">
         <Text className="font-display-bold text-xl text-text">{name}</Text>
-        {level != null && <Text className="font-sans-medium text-sm text-text-muted">Level {level}</Text>}
+        {level != null && <Text className="font-sans-medium text-sm text-text-muted">Lv. {level}</Text>}
       </View>
       {badges}
     </View>
@@ -86,7 +86,7 @@ export function MonsterCard({
       {avatar}
       <View className="flex-1 gap-1">
         <Text className="font-display-bold text-lg text-text">{name}</Text>
-        {level != null && <Text className="font-sans-medium text-sm text-text-muted">Level {level}</Text>}
+        {level != null && <Text className="font-sans-medium text-sm text-text-muted">Lv. {level}</Text>}
       </View>
       {badges}
     </View>
