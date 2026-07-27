@@ -1,10 +1,3 @@
-const XP_STEP = 100;
-
-/** Total XP required to have already completed `level` (level 0 = 0 XP). */
-function cumulativeXpForLevel(level: number) {
-  return (XP_STEP * level * (level + 1)) / 2;
-}
-
 export type XpProgress = {
   /** XP earned so far within the current level. */
   xpIntoLevel: number;
@@ -15,17 +8,26 @@ export type XpProgress = {
 };
 
 /**
- * Mirrors the leveling curve computed server-side in the `add_player_xp` /
- * `add_wobblin_xp` Postgres functions: to reach level L, cumulative XP must
- * be >= 100*(L-1)*L/2. Used to render an XP bar scoped to the current level
- * rather than raw lifetime XP.
+ * `experience` is level-relative — it resets to 0 on every level-up — so
+ * this is a direct lookup against `requirements[level]` rather than
+ * deriving a window out of a cumulative total. `requirements` mirrors the
+ * `wobblin_level_xp_requirements` table `add_wobblin_xp` reads from
+ * server-side; a level with no entry (past the soft level cap) renders as
+ * a full bar.
  */
-export function getXpProgress(experience: number, level: number): XpProgress {
-  const levelFloorXp = cumulativeXpForLevel(level - 1);
-  const levelCeilingXp = cumulativeXpForLevel(level);
-  const xpForLevel = levelCeilingXp - levelFloorXp;
-  const xpIntoLevel = Math.min(xpForLevel, Math.max(0, experience - levelFloorXp));
-  const percent = xpForLevel > 0 ? Math.min(100, (xpIntoLevel / xpForLevel) * 100) : 100;
+export function getXpProgress(
+  experience: number,
+  level: number,
+  requirements: Record<number, number>,
+): XpProgress {
+  const xpForLevel = requirements[level] ?? 0;
+
+  if (xpForLevel <= 0) {
+    return { xpIntoLevel: 0, xpForLevel: 0, percent: 100 };
+  }
+
+  const xpIntoLevel = Math.min(xpForLevel, Math.max(0, experience));
+  const percent = Math.min(100, (xpIntoLevel / xpForLevel) * 100);
 
   return { xpIntoLevel, xpForLevel, percent };
 }

@@ -31,10 +31,39 @@ export async function claimEgg(playerWobblinId: string): Promise<ClaimEggResult>
   return data as unknown as ClaimEggResult;
 }
 
-/** Hatches a claimed egg into a new Stage 0 Wobblin via the `hatch_egg` RPC. */
+/**
+ * Hatches an egg into a new Stage 0 Wobblin via the `hatch_egg` RPC. The
+ * server re-validates that `eggs.xp` has reached `essence_config`'s hatch
+ * threshold — the client only shows the ready state, it doesn't enforce it.
+ */
 export async function hatchEgg(eggId: string) {
   const { data, error } = await supabase.rpc("hatch_egg", { p_egg_id: eggId });
 
   if (error) throw error;
   return data as Tables<"player_wobblins">;
+}
+
+export type FeedEggEssenceResult = {
+  egg: Tables<"eggs">;
+  essence_spent: number;
+  ready_to_hatch: boolean;
+  new_balance: number;
+};
+
+/**
+ * Feeds essence into an unhatched egg's XP bar via the `feed_egg_essence`
+ * RPC. The server caps the actual spend at whatever's left to fill the bar
+ * (no charging for overflow) and returns the resulting balance/progress.
+ */
+export async function feedEggEssence(
+  eggId: string,
+  essenceAmount: number,
+): Promise<FeedEggEssenceResult> {
+  const { data, error } = await supabase.rpc("feed_egg_essence", {
+    p_egg_id: eggId,
+    p_essence_amount: essenceAmount,
+  });
+
+  if (error) throw error;
+  return data as unknown as FeedEggEssenceResult;
 }

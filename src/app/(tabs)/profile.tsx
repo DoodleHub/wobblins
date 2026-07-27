@@ -10,7 +10,6 @@ import { LoadingScreen } from "@/components/LoadingScreen";
 import { PLAYER_PORTRAIT, PROFILE_BANNER } from "@/constants/avatars";
 import { COLORS } from "@/constants/theme";
 import { usePlayer } from "@/hooks/usePlayer";
-import { useMyGroups } from "@/hooks/useGroups";
 import { useScrollScreenContentStyle } from "@/hooks/useTabBarClearance";
 import { usePlayerWobblins } from "@/hooks/useWobblins";
 import { signOut } from "@/supabase/auth";
@@ -24,7 +23,7 @@ export default function ProfileScreen() {
 
   const { data: player, isPending, error } = usePlayer(playerId);
   const { data: wobblins } = usePlayerWobblins(playerId);
-  const { data: groups } = useMyGroups(playerId);
+  const speciesDiscovered = new Set((wobblins ?? []).map((w) => w.species_id)).size;
 
   const [signingOut, setSigningOut] = useState(false);
   const contentStyle = useScrollScreenContentStyle(24, 1);
@@ -70,15 +69,15 @@ export default function ProfileScreen() {
         />
         <View className="h-10 w-px bg-border" />
         <StatColumn
-          icon={{ family: "ionicons", name: "people" }}
-          value={String(groups?.length ?? 0)}
-          label={"Groups\nJoined"}
+          icon={{ family: "ionicons", name: "flash" }}
+          value={String(player.essence_balance)}
+          label={"Essence\nBalance"}
         />
         <View className="h-10 w-px bg-border" />
         <StatColumn
-          icon={{ family: "ionicons", name: "checkmark-done" }}
-          value={String(player.tasks_approved_count)}
-          label={"Tasks\nCompleted"}
+          icon={{ family: "ionicons", name: "sparkles" }}
+          value={String(speciesDiscovered)}
+          label={"Species\nDiscovered"}
         />
       </View>
 

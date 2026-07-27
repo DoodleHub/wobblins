@@ -8,7 +8,8 @@ import { Icon, type IconSpec } from "@/components/Icon";
 import { Skeleton } from "@/components/Skeleton";
 import { SPECIES_ART } from "@/constants/speciesArt";
 import { COLORS, ELEMENT_COLORS, ELEMENT_ICON, RARITY_COLORS, type Element, type Rarity } from "@/constants/theme";
-import { useHatchEgg, useMyEggs } from "@/hooks/useEggs";
+import { useFeedEggEssence, useHatchEgg, useMyEggs } from "@/hooks/useEggs";
+import { useEssenceConfig } from "@/hooks/useEssence";
 import { useScrollScreenContentStyle } from "@/hooks/useTabBarClearance";
 import { useAllSpecies, usePlayerWobblins } from "@/hooks/useWobblins";
 import type { Egg } from "@/supabase/eggs";
@@ -56,10 +57,12 @@ export default function CollectionScreen() {
   const { data: allSpecies } = useAllSpecies();
   const { data: eggs, refetch: refetchEggs } = useMyEggs(playerId);
   const hatchEgg = useHatchEgg(playerId);
+  const feedEggEssence = useFeedEggEssence(playerId);
+  const { data: essenceConfig } = useEssenceConfig();
 
   // Tab screens (and any screen underneath a pushed stack route) can be frozen by the
   // navigator while unfocused — a cache update that lands while this screen is frozen
-  // (e.g. a sacrifice performed on the Wobblin detail screen) doesn't reliably repaint
+  // (e.g. an evolution performed on the Wobblin detail screen) doesn't reliably repaint
   // once the freeze lifts. Refetching on focus is the standard, deterministic fix rather
   // than relying on the frozen screen to pick up an already-updated cache on its own.
   useFocusEffect(
@@ -142,7 +145,14 @@ export default function CollectionScreen() {
           </View>
           {searchOpen && <SearchField value={search} onChange={setSearch} />}
           {unhatchedEggs.length > 0 && (
-            <EggsStrip eggs={unhatchedEggs} onHatch={(eggId) => hatchEgg.mutate(eggId)} hatching={hatchEgg.isPending} />
+            <EggsStrip
+              eggs={unhatchedEggs}
+              hatchXpRequired={essenceConfig?.egg_hatch_xp_required ?? 0}
+              onHatch={(eggId) => hatchEgg.mutate(eggId)}
+              hatching={hatchEgg.isPending}
+              onFeed={(eggId, essenceAmount) => feedEggEssence.mutate({ eggId, essenceAmount })}
+              feeding={feedEggEssence.isPending}
+            />
           )}
           {wobblins && wobblins.length > 0 && <FilterRow value={filter} onChange={setFilter} />}
         </View>
@@ -154,7 +164,7 @@ export default function CollectionScreen() {
           description={
             wobblins && wobblins.length > 0
               ? "Try a different filter."
-              : "Complete tasks for your group to earn your first Wobblins."
+              : "Hatch eggs, visit the Shop, or trade with other players to grow your collection."
           }
         />
       }
@@ -256,54 +266,134 @@ function FilterRow({
 
 function EggsStrip({
   eggs,
+  hatchXpRequired,
   onHatch,
   hatching,
+  onFeed,
+  feeding,
 }: {
   eggs: Egg[];
+  hatchXpRequired: number;
   onHatch: (eggId: string) => void;
   hatching: boolean;
+  onFeed: (eggId: string, essenceAmount: number) => void;
+  feeding: boolean;
 }) {
   return (
     <View className="gap-2 rounded-2xl border border-secondary/40 bg-secondary/10 p-3">
       <View className="flex-row items-center gap-1.5">
         <Icon family="material-community" name="egg-easter" size={15} color={COLORS.secondary} />
-        <Text className="font-display text-sm uppercase tracking-wide text-secondary-dark">
-          Eggs Ready to Hatch
-        </Text>
+        <Text className="font-display text-sm uppercase tracking-wide text-secondary-dark">Eggs</Text>
       </View>
       <View className="gap-2">
         {eggs.map((egg) => (
-          <View
+          <EggRow
             key={egg.id}
-            className="flex-row items-center gap-3 rounded-xl border border-border bg-surface p-2.5"
-          >
-            <View
-              className="h-10 w-10 items-center justify-center rounded-full border bg-background"
-              style={{ borderColor: `${ELEMENT_COLORS[egg.species.element.toLowerCase() as Element]}66` }}
-            >
-              <Icon
-                {...ELEMENT_ICON[egg.species.element.toLowerCase() as Element]}
-                size={18}
-                color={ELEMENT_COLORS[egg.species.element.toLowerCase() as Element]}
-              />
-            </View>
-            <Text className="flex-1 font-sans-semibold text-sm text-text">{egg.species.name} Egg</Text>
-            <Pressable
-              onPress={() => onHatch(egg.id)}
-              disabled={hatching}
-              accessibilityRole="button"
-              className="rounded-full bg-secondary px-3 py-1.5"
-              style={{ opacity: hatching ? 0.6 : 1 }}
-            >
-              {hatching ? (
-                <ActivityIndicator size="small" color="#0c0d16" />
-              ) : (
-                <Text className="font-sans-bold text-xs text-background">Hatch</Text>
-              )}
-            </Pressable>
-          </View>
+            egg={egg}
+            hatchXpRequired={hatchXpRequired}
+            onHatch={() => onHatch(egg.id)}
+            hatching={hatching}
+            onFeed={(amount) => onFeed(egg.id, amount)}
+            feeding={feeding}
+          />
         ))}
       </View>
+    </View>
+  );
+}
+
+function EggRow({
+  egg,
+  hatchXpRequired,
+  onHatch,
+  hatching,
+  onFeed,
+  feeding,
+}: {
+  egg: Egg;
+  hatchXpRequired: number;
+  onHatch: () => void;
+  hatching: boolean;
+  onFeed: (essenceAmount: number) => void;
+  feeding: boolean;
+}) {
+  const [amount, setAmount] = useState("");
+  const element = egg.species.element.toLowerCase() as Element;
+  const ready = hatchXpRequired > 0 && egg.xp >= hatchXpRequired;
+  const percent = hatchXpRequired > 0 ? Math.min(100, (egg.xp / hatchXpRequired) * 100) : 0;
+
+  const handleFeed = () => {
+    const value = Math.floor(Number(amount));
+    if (!Number.isFinite(value) || value <= 0) return;
+    onFeed(value);
+    setAmount("");
+  };
+
+  return (
+    <View className="gap-2 rounded-xl border border-border bg-surface p-2.5">
+      <View className="flex-row items-center gap-3">
+        <View
+          className="h-10 w-10 items-center justify-center rounded-full border bg-background"
+          style={{ borderColor: `${ELEMENT_COLORS[element]}66` }}
+        >
+          <Icon {...ELEMENT_ICON[element]} size={18} color={ELEMENT_COLORS[element]} />
+        </View>
+        <View className="flex-1 gap-1">
+          <Text className="font-sans-semibold text-sm text-text">{egg.species.name} Egg</Text>
+          <View className="h-1.5 w-full overflow-hidden rounded-full bg-border">
+            <View
+              className="h-full rounded-full"
+              style={{ width: `${percent}%`, backgroundColor: COLORS.essence }}
+            />
+          </View>
+        </View>
+        {ready ? (
+          <Pressable
+            onPress={onHatch}
+            disabled={hatching}
+            accessibilityRole="button"
+            className="rounded-full bg-secondary px-3 py-1.5"
+            style={{ opacity: hatching ? 0.6 : 1 }}
+          >
+            {hatching ? (
+              <ActivityIndicator size="small" color="#0c0d16" />
+            ) : (
+              <Text className="font-sans-bold text-xs text-background">Hatch</Text>
+            )}
+          </Pressable>
+        ) : (
+          <Text className="font-sans-medium text-[11px] text-text-subtle">
+            {egg.xp}/{hatchXpRequired}
+          </Text>
+        )}
+      </View>
+      {!ready && (
+        <View className="flex-row items-center gap-2">
+          <TextInput
+            value={amount}
+            onChangeText={setAmount}
+            placeholder="Essence"
+            placeholderTextColor={COLORS.textSubtle}
+            keyboardType="number-pad"
+            className="flex-1 rounded-lg border border-border bg-surface-raised px-3 py-1.5 font-sans text-xs text-text"
+          />
+          <Pressable
+            onPress={handleFeed}
+            disabled={feeding}
+            accessibilityRole="button"
+            className="rounded-lg border px-3 py-1.5"
+            style={{
+              borderColor: `${COLORS.essence}66`,
+              backgroundColor: `${COLORS.essence}1f`,
+              opacity: feeding ? 0.6 : 1,
+            }}
+          >
+            <Text className="font-sans-semibold text-xs" style={{ color: COLORS.essence }}>
+              Feed
+            </Text>
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }
@@ -317,40 +407,22 @@ function WobblinGridCard({ wobblin, width }: { wobblin: PlayerWobblin; width: nu
   const elementColor = ELEMENT_COLORS[element];
   const rarityColor = RARITY_COLORS[rarity];
   const art = SPECIES_ART[wobblin.species.name];
-  const isLocked = wobblin.locked_reason != null;
 
   return (
     <Pressable
       onPress={() => router.push(`/wobblin/${wobblin.id}`)}
       accessibilityRole="button"
-      accessibilityLabel={isLocked ? `${name}, locked as a task reward` : name}
-      className="gap-2 overflow-hidden rounded-2xl border p-2"
+      accessibilityLabel={name}
+      className="gap-1 overflow-hidden rounded-2xl border p-2"
       style={{
         width,
-        borderColor: isLocked ? `${COLORS.gold}66` : `${rarityColor}55`,
-        backgroundColor: isLocked ? `${COLORS.gold}14` : `${rarityColor}14`,
+        borderColor: `${rarityColor}55`,
+        backgroundColor: `${rarityColor}14`,
       }}
     >
-      <View className="flex-row items-center justify-between">
-        <View
-          className="h-6 w-6 items-center justify-center rounded-full border"
-          style={{ borderColor: `${elementColor}66`, backgroundColor: `${elementColor}22` }}
-        >
-          <Icon {...ELEMENT_ICON[element]} size={12} color={elementColor} />
-        </View>
-        {isLocked && (
-          <View
-            className="h-6 w-6 items-center justify-center rounded-full border"
-            style={{ borderColor: `${COLORS.gold}66`, backgroundColor: `${COLORS.gold}33` }}
-          >
-            <Icon family="ionicons" name="lock-closed" size={11} color={COLORS.gold} />
-          </View>
-        )}
-      </View>
-
-      <View className="aspect-square items-center justify-center" style={{ opacity: isLocked ? 0.6 : 1 }}>
+      <View className="aspect-square items-center justify-end">
         {art ? (
-          <Image source={art} style={{ width: "100%", height: "100%" }} contentFit="contain" />
+          <Image source={art} style={{ width: "100%", height: "78%" }} contentFit="contain" />
         ) : (
           <View
             className="h-14 w-14 items-center justify-center rounded-full border bg-background"
@@ -359,13 +431,24 @@ function WobblinGridCard({ wobblin, width }: { wobblin: PlayerWobblin; width: nu
             <Icon {...ELEMENT_ICON[element]} size={24} color={elementColor} />
           </View>
         )}
+        <View
+          className="absolute left-0 top-0 rounded-full px-2 py-0.5"
+          style={{ backgroundColor: `${COLORS.background}cc` }}
+        >
+          <Text className="font-sans-bold text-[11px] text-text">Lv. {wobblin.level}</Text>
+        </View>
+        <View
+          className="absolute right-0 top-0 h-6 w-6 items-center justify-center rounded-full"
+          style={{ backgroundColor: `${COLORS.background}cc` }}
+        >
+          <Icon {...ELEMENT_ICON[element]} size={12} color={elementColor} />
+        </View>
       </View>
 
-      <View className="gap-1 px-0.5 pb-0.5">
-        <Text numberOfLines={1} className="font-display-bold text-sm text-text">
+      <View className="px-0.5 pb-0.5">
+        <Text numberOfLines={1} className="text-center font-display-bold text-sm text-text">
           {name}
         </Text>
-        <Text className="font-sans-medium text-xs text-text-muted">Lv. {wobblin.level}</Text>
       </View>
     </Pressable>
   );

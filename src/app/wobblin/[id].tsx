@@ -1,11 +1,11 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
+import { EssenceSlider } from "@/components/EssenceSlider";
 import { EvolutionBanner } from "@/components/EvolutionBanner";
 import { Icon } from "@/components/Icon";
 import { LevelUpBanner } from "@/components/LevelUpBanner";
@@ -16,19 +16,10 @@ import { XPBar } from "@/components/XPBar";
 import { SPECIES_ART, SPECIES_ART_ASPECT } from "@/constants/speciesArt";
 import { COLORS, ELEMENT_COLORS, ELEMENT_ICON, mixColors, RARITY_COLORS, type Element, type Rarity } from "@/constants/theme";
 import { useClaimEgg } from "@/hooks/useEggs";
-import { useSetActiveWobblin } from "@/hooks/usePlayer";
-import { queryKeys } from "@/hooks/queryKeys";
-import { useTaskForRewardWobblin } from "@/hooks/useTasks";
-import {
-  useAllSpecies,
-  useEvolveWobblin,
-  useFeaturedWobblin,
-  usePlayerWobblins,
-  useSacrificeWobblin,
-  useWobblin,
-} from "@/hooks/useWobblins";
+import { useEssenceConfig, useSpendEssenceForXp } from "@/hooks/useEssence";
+import { usePlayer, useSetActiveWobblin } from "@/hooks/usePlayer";
+import { useAllSpecies, useEvolveWobblin, useFeaturedWobblin, useWobblin } from "@/hooks/useWobblins";
 import { useSupabase } from "@/supabase/SupabaseProvider";
-import type { PlayerWobblin } from "@/supabase/wobblins";
 import { getErrorMessage } from "@/utils/errors";
 
 const EGG_CADENCE_MS = (hours: number) => hours * 60 * 60 * 1000;
@@ -46,49 +37,40 @@ const HERO_PORTRAIT_MIN_HEIGHT = 168;
 export default function MonsterDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const navigation = useNavigation();
   const { session } = useSupabase();
   const playerId = session?.user.id;
-  const queryClient = useQueryClient();
 
   const { data: wobblin, isPending, error } = useWobblin(id);
   const { data: featured } = useFeaturedWobblin(playerId);
   const { data: allSpecies } = useAllSpecies();
-  const { data: allWobblins } = usePlayerWobblins(playerId);
-  const { data: rewardTask } = useTaskForRewardWobblin(
-    id,
-    wobblin?.locked_reason != null && wobblin.player_id === playerId,
-  );
+  const { data: player } = usePlayer(playerId);
   const setActiveWobblin = useSetActiveWobblin(playerId);
   const evolveWobblin = useEvolveWobblin(playerId);
-  const sacrificeWobblin = useSacrificeWobblin(playerId);
   const claimEgg = useClaimEgg(playerId);
+  const spendEssenceForXp = useSpendEssenceForXp(playerId);
+  const { data: essenceConfig } = useEssenceConfig();
 
   const [levelUp, setLevelUp] = useState<number | null>(null);
   const [evolvedTo, setEvolvedTo] = useState<string | null>(null);
   const [evolveError, setEvolveError] = useState<string | null>(null);
-  const [sacrificeOpen, setSacrificeOpen] = useState(false);
-  const [selectedDuplicateIds, setSelectedDuplicateIds] = useState<Set<string>>(new Set());
-  const [sacrificing, setSacrificing] = useState(false);
-  const [sacrificeError, setSacrificeError] = useState<string | null>(null);
   const [eggError, setEggError] = useState<string | null>(null);
+  const [feedAmount, setFeedAmount] = useState(0);
+  const [feedError, setFeedError] = useState<string | null>(null);
   const [toast, setToast] = useState<RewardToastData | null>(null);
   // Captured once per mount rather than read live — good enough for a display-only
   // readiness check, since the `claim_egg` RPC re-validates the cadence server-side
   // regardless of what the client thinks "now" is.
   const [now] = useState(() => Date.now());
 
-  const duplicates = useMemo(() => {
-    if (!wobblin || !allWobblins) return [];
-    return allWobblins
-      .filter(
-        (w) =>
-          w.id !== wobblin.id &&
-          w.locked_reason == null &&
-          w.species.evolution_chain_id === wobblin.species.evolution_chain_id,
-      )
-      .sort((a, b) => a.species.stage - b.species.stage || a.level - b.level);
-  }, [wobblin, allWobblins]);
+  // Seeds the slider at a sensible starting point (half the player's balance)
+  // the first time it becomes known, so there's always a non-zero amount
+  // ready to feed without the player having to touch the control at all.
+  const hasSeededFeedAmount = useRef(false);
+  useEffect(() => {
+    if (hasSeededFeedAmount.current || player == null) return;
+    hasSeededFeedAmount.current = true;
+    setFeedAmount(Math.round((player.essence_balance ?? 0) / 2));
+  }, [player]);
 
   if (isPending) {
     return <LoadingScreen message="Loading Wobblin…" />;
@@ -113,7 +95,6 @@ export default function MonsterDetailScreen() {
   const art = SPECIES_ART[wobblin.species.name];
   const isFeatured = featured?.id === wobblin.id;
   const isOwner = wobblin.player_id === playerId;
-  const isLocked = wobblin.locked_reason != null;
   const caughtOn = new Date(wobblin.acquired_at).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
@@ -122,7 +103,7 @@ export default function MonsterDetailScreen() {
 
   const canEvolve = wobblin.species.evolves_into_id != null;
   const evolutionLevel = wobblin.species.evolution_level;
-  const readyToEvolve = canEvolve && evolutionLevel != null && wobblin.level >= evolutionLevel && !isLocked;
+  const readyToEvolve = canEvolve && evolutionLevel != null && wobblin.level >= evolutionLevel;
   const nextSpecies = canEvolve ? allSpecies?.find((s) => s.id === wobblin.species.evolves_into_id) : undefined;
 
   const isFinalStage = wobblin.species.stage === 2;
@@ -139,54 +120,25 @@ export default function MonsterDetailScreen() {
     });
   };
 
-  const toggleDuplicateSelected = (id: string) => {
-    setSelectedDuplicateIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  const closeSacrificePicker = () => {
-    setSacrificeOpen(false);
-    setSelectedDuplicateIds(new Set());
-    setSacrificeError(null);
-  };
-
-  /** Sacrifices are consumed one RPC call at a time (server has no batch variant), in sequence. */
-  const onSacrificeSelected = async () => {
-    if (selectedDuplicateIds.size === 0) return;
-    setSacrificeError(null);
-    setSacrificing(true);
-
-    let finalLevel = wobblin.level;
-    let anyLeveledUp = false;
-
-    try {
-      for (const consumedId of selectedDuplicateIds) {
-        const result = await sacrificeWobblin.mutateAsync({ targetId: wobblin.id, consumedId });
-        finalLevel = result.wobblin.level;
-        anyLeveledUp = anyLeveledUp || result.leveled_up;
-      }
-      closeSacrificePicker();
-      if (anyLeveledUp) setLevelUp(finalLevel);
-    } catch (err) {
-      setSacrificeError(getErrorMessage(err));
-    } finally {
-      // Each sacrifice's own onSuccess invalidates playerWobblins, but firing several
-      // in quick succession can race: a still-in-flight refetch from an earlier
-      // sacrifice gets reused (deduped) for a later invalidation instead of triggering
-      // a fresh request, so the list can settle on a snapshot that's missing only
-      // some of the just-consumed Wobblins. One more invalidation after the whole
-      // batch has actually finished guarantees the final refetch reflects every
-      // sacrifice, not just however many completed before the dedup kicked in.
-      await queryClient.invalidateQueries({ queryKey: queryKeys.playerWobblins(playerId) });
-      setSacrificing(false);
+  const onFeedXp = () => {
+    const amount = Math.floor(feedAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setFeedError("Drag the slider to choose some essence to spend.");
+      return;
     }
+
+    setFeedError(null);
+    spendEssenceForXp.mutate(
+      { playerWobblinId: wobblin.id, essenceAmount: amount },
+      {
+        onSuccess: (result) => {
+          const remainingBalance = (player?.essence_balance ?? amount) - amount;
+          setFeedAmount(Math.round(Math.max(remainingBalance, 0) / 2));
+          if (result.leveled_up) setLevelUp(result.wobblin.level);
+        },
+        onError: (err) => setFeedError(getErrorMessage(err)),
+      },
+    );
   };
 
   const onClaimEgg = () => {
@@ -201,26 +153,6 @@ export default function MonsterDetailScreen() {
       },
       onError: (err) => setEggError(getErrorMessage(err)),
     });
-  };
-
-  /**
-   * Avoids a task ⇄ Wobblin ping-pong: if the screen right below this one in the
-   * stack is already that same task's detail screen (i.e. the user came from
-   * `/task/[id]` by tapping the reward monster), just go back to it instead of
-   * pushing a second copy on top.
-   */
-  const onPressLockedBanner = () => {
-    if (!rewardTask) return;
-
-    const state = navigation.getState();
-    const previousRoute = state?.routes[state.index - 1];
-    const previousParams = previousRoute?.params as { id?: string } | undefined;
-
-    if (previousRoute?.name === "task/[id]" && previousParams?.id === rewardTask.id) {
-      router.back();
-    } else {
-      router.push(`/task/${rewardTask.id}`);
-    }
   };
 
   return (
@@ -245,21 +177,18 @@ export default function MonsterDetailScreen() {
 
           <Pressable
             onPress={() => setActiveWobblin.mutate(wobblin.id)}
-            disabled={isFeatured || isLocked || setActiveWobblin.isPending}
+            disabled={isFeatured || setActiveWobblin.isPending}
             accessibilityRole="button"
-            accessibilityLabel={
-              isFeatured ? "Featured Wobblin" : isLocked ? "Locked as a task reward" : "Set as featured Wobblin"
-            }
+            accessibilityLabel={isFeatured ? "Featured Wobblin" : "Set as featured Wobblin"}
             className="flex-row items-center gap-1.5 rounded-full border px-3.5 py-2"
             style={{
               borderColor: isFeatured ? `${COLORS.gold}66` : COLORS.border,
               backgroundColor: isFeatured ? `${COLORS.gold}1a` : COLORS.surface,
-              opacity: isLocked && !isFeatured ? 0.5 : 1,
             }}
           >
             <Icon
               family="ionicons"
-              name={isFeatured ? "star" : isLocked ? "lock-closed" : "star-outline"}
+              name={isFeatured ? "star" : "star-outline"}
               size={15}
               color={isFeatured ? COLORS.gold : COLORS.textMuted}
             />
@@ -267,7 +196,7 @@ export default function MonsterDetailScreen() {
               className="font-sans-semibold text-xs"
               style={{ color: isFeatured ? COLORS.gold : COLORS.textMuted }}
             >
-              {isFeatured ? "Featured" : isLocked ? "Locked" : "Set Featured"}
+              {isFeatured ? "Featured" : "Set Featured"}
             </Text>
           </Pressable>
         </View>
@@ -287,18 +216,51 @@ export default function MonsterDetailScreen() {
           caughtOn={caughtOn}
         />
 
-        {isLocked && isOwner && (
-          <Pressable
-            onPress={rewardTask ? onPressLockedBanner : undefined}
-            accessibilityRole={rewardTask ? "button" : undefined}
-            className="flex-row items-center gap-2 rounded-xl border border-gold/40 bg-gold/10 px-4 py-3"
+        {isOwner && (
+          <View
+            className="gap-3 rounded-2xl border p-4"
+            style={{ borderColor: `${COLORS.essence}40`, backgroundColor: `${COLORS.essence}0f` }}
           >
-            <Icon family="ionicons" name="lock-closed" size={16} color={COLORS.gold} />
-            <Text className="flex-1 font-sans-medium text-sm text-gold">
-              Locked as a task reward — it can&apos;t evolve, be sacrificed, or be offered elsewhere until the task resolves.
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center gap-1.5">
+                <Icon family="ionicons" name="flash" size={16} color={COLORS.essence} />
+                <Text className="font-display text-sm uppercase tracking-wide" style={{ color: COLORS.essence }}>
+                  Feed XP
+                </Text>
+              </View>
+              <Text className="font-sans-semibold text-xs text-text-muted">
+                {player?.essence_balance ?? 0} essence
+              </Text>
+            </View>
+            <Text className="font-sans text-xs text-text-subtle">
+              Spend essence to grant {name} XP directly, no duplicate needed.
             </Text>
-            {rewardTask && <Icon family="ionicons" name="chevron-forward" size={16} color={COLORS.gold} />}
-          </Pressable>
+
+            <View className="flex-row items-baseline justify-between">
+              <View className="flex-row items-baseline gap-1.5">
+                <Text className="font-display-bold text-3xl" style={{ color: COLORS.essence }}>
+                  {feedAmount}
+                </Text>
+                <Text className="font-sans-semibold text-xs text-text-muted">essence</Text>
+              </View>
+              <View className="flex-row items-baseline gap-1">
+                <Icon family="ionicons" name="arrow-forward" size={12} color={COLORS.xp} />
+                <Text className="font-sans-bold text-sm" style={{ color: COLORS.xp }}>
+                  +{Math.floor(feedAmount * (essenceConfig?.xp_per_essence ?? 1))} XP
+                </Text>
+              </View>
+            </View>
+
+            <EssenceSlider max={player?.essence_balance ?? 0} value={feedAmount} onChange={setFeedAmount} />
+
+            <Button
+              label={(player?.essence_balance ?? 0) <= 0 ? "No Essence Available" : "Feed"}
+              onPress={onFeedXp}
+              loading={spendEssenceForXp.isPending}
+              disabled={feedAmount <= 0 || (player?.essence_balance ?? 0) <= 0}
+            />
+            {feedError && <Text className="font-sans-medium text-sm text-danger">{feedError}</Text>}
+          </View>
         )}
 
         {wobblin.species.description && (
@@ -377,59 +339,6 @@ export default function MonsterDetailScreen() {
           </View>
         )}
 
-        <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
-          <View className="flex-row items-center justify-between">
-            <Text className="font-display text-sm uppercase tracking-wide text-text-muted">
-              Sacrifice Duplicates
-            </Text>
-            {!sacrificeOpen && (
-              <Pressable onPress={() => setSacrificeOpen(true)} disabled={isLocked || duplicates.length === 0}>
-                <Text
-                  className="font-sans-semibold text-xs"
-                  style={{ color: isLocked || duplicates.length === 0 ? COLORS.textSubtle : COLORS.primaryDark }}
-                >
-                  Choose
-                </Text>
-              </Pressable>
-            )}
-          </View>
-          <Text className="font-sans text-xs text-text-subtle">
-            Consume one or more Wobblins from the same evolution chain to grant {name} XP. Consumed Wobblins are
-            permanently removed.
-          </Text>
-
-          {duplicates.length === 0 ? (
-            <Text className="font-sans text-sm text-text-subtle">No eligible duplicates in your collection.</Text>
-          ) : sacrificeOpen ? (
-            <View className="gap-2">
-              {duplicates.map((duplicate) => (
-                <DuplicateRow
-                  key={duplicate.id}
-                  duplicate={duplicate}
-                  selected={selectedDuplicateIds.has(duplicate.id)}
-                  disabled={sacrificing}
-                  onPress={() => toggleDuplicateSelected(duplicate.id)}
-                />
-              ))}
-              <View className="flex-row gap-3">
-                <View className="flex-1">
-                  <Button label="Cancel" variant="secondary" onPress={closeSacrificePicker} disabled={sacrificing} />
-                </View>
-                <View className="flex-1">
-                  <Button
-                    label={selectedDuplicateIds.size > 1 ? `Sacrifice ${selectedDuplicateIds.size}` : "Sacrifice"}
-                    onPress={onSacrificeSelected}
-                    loading={sacrificing}
-                    disabled={selectedDuplicateIds.size === 0}
-                  />
-                </View>
-              </View>
-            </View>
-          ) : null}
-
-          {sacrificeError && <Text className="font-sans-medium text-sm text-danger">{sacrificeError}</Text>}
-        </View>
-
         {isFinalStage && (
           <View
             className="gap-3 rounded-2xl border p-4"
@@ -464,60 +373,6 @@ export default function MonsterDetailScreen() {
   );
 }
 
-function DuplicateRow({
-  duplicate,
-  selected,
-  disabled,
-  onPress,
-}: {
-  duplicate: PlayerWobblin;
-  selected: boolean;
-  disabled: boolean;
-  onPress: () => void;
-}) {
-  const element = duplicate.species.element.toLowerCase() as Element;
-  const name = duplicate.nickname ?? duplicate.species.name;
-  const art = SPECIES_ART[duplicate.species.name];
-
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked: selected, disabled }}
-      className="flex-row items-center gap-3 rounded-xl border p-3"
-      style={{
-        opacity: disabled && !selected ? 0.6 : 1,
-        borderColor: selected ? COLORS.danger : COLORS.border,
-        backgroundColor: selected ? `${COLORS.danger}14` : COLORS.surfaceRaised,
-      }}
-    >
-      <View
-        className="h-10 w-10 items-center justify-center rounded-full border bg-background"
-        style={{ borderColor: `${ELEMENT_COLORS[element]}66` }}
-      >
-        {art ? (
-          <Image source={art} style={{ width: "82%", height: "82%" }} contentFit="contain" />
-        ) : (
-          <Icon {...ELEMENT_ICON[element]} size={16} color={ELEMENT_COLORS[element]} />
-        )}
-      </View>
-      <View className="flex-1 gap-0.5">
-        <Text className="font-sans-semibold text-sm text-text">{name}</Text>
-        <Text className="font-sans text-xs text-text-subtle">Lv. {duplicate.level}</Text>
-      </View>
-      <View
-        className="h-6 w-6 items-center justify-center rounded-full border-2"
-        style={{
-          borderColor: selected ? COLORS.danger : COLORS.border,
-          backgroundColor: selected ? COLORS.danger : "transparent",
-        }}
-      >
-        {selected && <Icon family="ionicons" name="checkmark" size={14} color="#ffffff" />}
-      </View>
-    </Pressable>
-  );
-}
 
 function MonsterHero({
   name,

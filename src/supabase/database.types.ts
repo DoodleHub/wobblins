@@ -22,6 +22,7 @@ export type Database = {
           owner_id: string
           source_wobblin_id: string | null
           species_id: string
+          xp: number
         }
         Insert: {
           claimed_at?: string
@@ -30,6 +31,7 @@ export type Database = {
           owner_id: string
           source_wobblin_id?: string | null
           species_id: string
+          xp?: number
         }
         Update: {
           claimed_at?: string
@@ -38,8 +40,16 @@ export type Database = {
           owner_id?: string
           source_wobblin_id?: string | null
           species_id?: string
+          xp?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "eggs_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "player_public_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "eggs_owner_id_fkey"
             columns: ["owner_id"]
@@ -63,74 +73,114 @@ export type Database = {
           },
         ]
       }
-      group_members: {
+      essence_config: {
         Row: {
-          group_id: string
-          id: string
-          joined_at: string
-          player_id: string
-          role: string
+          daily_claim_amount: number
+          egg_hatch_xp_required: number
+          id: boolean
+          passive_accrual_cap_hours: number
+          xp_per_essence: number
         }
         Insert: {
-          group_id: string
-          id?: string
-          joined_at?: string
-          player_id: string
-          role: string
+          daily_claim_amount?: number
+          egg_hatch_xp_required?: number
+          id?: boolean
+          passive_accrual_cap_hours?: number
+          xp_per_essence?: number
         }
         Update: {
-          group_id?: string
+          daily_claim_amount?: number
+          egg_hatch_xp_required?: number
+          id?: boolean
+          passive_accrual_cap_hours?: number
+          xp_per_essence?: number
+        }
+        Relationships: []
+      }
+      essence_generation_rates: {
+        Row: {
+          base_rate_per_hour: number
+          per_level_rate: number
+          stage: number
+        }
+        Insert: {
+          base_rate_per_hour: number
+          per_level_rate: number
+          stage: number
+        }
+        Update: {
+          base_rate_per_hour?: number
+          per_level_rate?: number
+          stage?: number
+        }
+        Relationships: []
+      }
+      marketplace_listings: {
+        Row: {
+          cancelled_at: string | null
+          created_at: string
+          id: string
+          player_wobblin_id: string
+          price_essence: number
+          seller_id: string
+          sold_at: string | null
+          sold_to: string | null
+          status: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          created_at?: string
           id?: string
-          joined_at?: string
-          player_id?: string
-          role?: string
+          player_wobblin_id: string
+          price_essence: number
+          seller_id: string
+          sold_at?: string | null
+          sold_to?: string | null
+          status?: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          created_at?: string
+          id?: string
+          player_wobblin_id?: string
+          price_essence?: number
+          seller_id?: string
+          sold_at?: string | null
+          sold_to?: string | null
+          status?: string
         }
         Relationships: [
           {
-            foreignKeyName: "group_members_group_id_fkey"
-            columns: ["group_id"]
+            foreignKeyName: "marketplace_listings_player_wobblin_id_fkey"
+            columns: ["player_wobblin_id"]
             isOneToOne: false
-            referencedRelation: "groups"
+            referencedRelation: "player_wobblins"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "group_members_player_id_fkey"
-            columns: ["player_id"]
+            foreignKeyName: "marketplace_listings_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "player_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_listings_seller_id_fkey"
+            columns: ["seller_id"]
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      groups: {
-        Row: {
-          created_at: string
-          id: string
-          invite_code: string
-          is_public: boolean
-          name: string
-          owner_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          invite_code: string
-          is_public?: boolean
-          name: string
-          owner_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          invite_code?: string
-          is_public?: boolean
-          name?: string
-          owner_id?: string
-        }
-        Relationships: [
           {
-            foreignKeyName: "groups_owner_id_fkey"
-            columns: ["owner_id"]
+            foreignKeyName: "marketplace_listings_sold_to_fkey"
+            columns: ["sold_to"]
+            isOneToOne: false
+            referencedRelation: "player_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_listings_sold_to_fkey"
+            columns: ["sold_to"]
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
@@ -145,7 +195,6 @@ export type Database = {
           id: string
           last_egg_claimed_at: string | null
           level: number
-          locked_reason: string | null
           nickname: string | null
           player_id: string
           species_id: string
@@ -157,7 +206,6 @@ export type Database = {
           id?: string
           last_egg_claimed_at?: string | null
           level?: number
-          locked_reason?: string | null
           nickname?: string | null
           player_id: string
           species_id: string
@@ -169,12 +217,18 @@ export type Database = {
           id?: string
           last_egg_claimed_at?: string | null
           level?: number
-          locked_reason?: string | null
           nickname?: string | null
           player_id?: string
           species_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "player_wobblins_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "player_public_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "player_wobblins_player_id_fkey"
             columns: ["player_id"]
@@ -196,36 +250,33 @@ export type Database = {
           active_wobblin_id: string | null
           avatar: string | null
           created_at: string
-          disputes_filed_count: number
-          disputes_received_count: number
+          essence_balance: number
+          essence_last_passive_claim_at: string | null
           id: string
+          last_daily_essence_claim_date: string | null
           onboarding_completed: boolean
-          tasks_approved_count: number
-          tasks_rejected_count: number
           username: string
         }
         Insert: {
           active_wobblin_id?: string | null
           avatar?: string | null
           created_at?: string
-          disputes_filed_count?: number
-          disputes_received_count?: number
+          essence_balance?: number
+          essence_last_passive_claim_at?: string | null
           id: string
+          last_daily_essence_claim_date?: string | null
           onboarding_completed?: boolean
-          tasks_approved_count?: number
-          tasks_rejected_count?: number
           username: string
         }
         Update: {
           active_wobblin_id?: string | null
           avatar?: string | null
           created_at?: string
-          disputes_filed_count?: number
-          disputes_received_count?: number
+          essence_balance?: number
+          essence_last_passive_claim_at?: string | null
           id?: string
+          last_daily_essence_claim_date?: string | null
           onboarding_completed?: boolean
-          tasks_approved_count?: number
-          tasks_rejected_count?: number
           username?: string
         }
         Relationships: [
@@ -238,133 +289,185 @@ export type Database = {
           },
         ]
       }
-      task_applications: {
+      shop_listings: {
         Row: {
-          applicant_id: string
-          applied_at: string
           id: string
-          task_id: string
+          price_essence: number
+          purchased_at: string | null
+          purchased_by: string | null
+          rotation_id: string
+          species_id: string
         }
         Insert: {
-          applicant_id: string
-          applied_at?: string
           id?: string
-          task_id: string
+          price_essence: number
+          purchased_at?: string | null
+          purchased_by?: string | null
+          rotation_id: string
+          species_id: string
         }
         Update: {
-          applicant_id?: string
-          applied_at?: string
           id?: string
-          task_id?: string
+          price_essence?: number
+          purchased_at?: string | null
+          purchased_by?: string | null
+          rotation_id?: string
+          species_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "task_applications_applicant_id_fkey"
-            columns: ["applicant_id"]
+            foreignKeyName: "shop_listings_purchased_by_fkey"
+            columns: ["purchased_by"]
+            isOneToOne: false
+            referencedRelation: "player_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_listings_purchased_by_fkey"
+            columns: ["purchased_by"]
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "task_applications_task_id_fkey"
-            columns: ["task_id"]
+            foreignKeyName: "shop_listings_rotation_id_fkey"
+            columns: ["rotation_id"]
             isOneToOne: false
-            referencedRelation: "tasks"
+            referencedRelation: "shop_rotations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_listings_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: false
+            referencedRelation: "wobblin_species"
             referencedColumns: ["id"]
           },
         ]
       }
-      tasks: {
+      shop_price_by_rarity: {
         Row: {
-          accepted_at: string | null
-          accepted_by: string | null
-          created_at: string
-          creator_id: string
-          description: string
-          dispute_note: string | null
-          disputed_at: string | null
-          expires_at: string | null
-          group_id: string
-          id: string
-          resolution_note: string | null
-          resolved_at: string | null
-          reward_wobblin_id: string
-          status: string
-          submission_note: string | null
-          submission_photo_path: string | null
-          submitted_at: string | null
-          title: string
+          price_essence: number
+          rarity: string
         }
         Insert: {
-          accepted_at?: string | null
-          accepted_by?: string | null
-          created_at?: string
-          creator_id: string
-          description?: string
-          dispute_note?: string | null
-          disputed_at?: string | null
-          expires_at?: string | null
-          group_id: string
-          id?: string
-          resolution_note?: string | null
-          resolved_at?: string | null
-          reward_wobblin_id: string
-          status?: string
-          submission_note?: string | null
-          submission_photo_path?: string | null
-          submitted_at?: string | null
-          title: string
+          price_essence: number
+          rarity: string
         }
         Update: {
-          accepted_at?: string | null
-          accepted_by?: string | null
+          price_essence?: number
+          rarity?: string
+        }
+        Relationships: []
+      }
+      shop_rotations: {
+        Row: {
+          created_at: string
+          id: string
+          week_start: string
+        }
+        Insert: {
           created_at?: string
-          creator_id?: string
-          description?: string
-          dispute_note?: string | null
-          disputed_at?: string | null
-          expires_at?: string | null
-          group_id?: string
           id?: string
-          resolution_note?: string | null
+          week_start: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
+      trade_offers: {
+        Row: {
+          created_at: string
+          id: string
+          offered_wobblin_id: string
+          proposer_id: string
+          recipient_id: string
+          requested_wobblin_id: string
+          resolved_at: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          offered_wobblin_id: string
+          proposer_id: string
+          recipient_id: string
+          requested_wobblin_id: string
           resolved_at?: string | null
-          reward_wobblin_id?: string
           status?: string
-          submission_note?: string | null
-          submission_photo_path?: string | null
-          submitted_at?: string | null
-          title?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          offered_wobblin_id?: string
+          proposer_id?: string
+          recipient_id?: string
+          requested_wobblin_id?: string
+          resolved_at?: string | null
+          status?: string
         }
         Relationships: [
           {
-            foreignKeyName: "tasks_accepted_by_fkey"
-            columns: ["accepted_by"]
+            foreignKeyName: "trade_offers_offered_wobblin_id_fkey"
+            columns: ["offered_wobblin_id"]
+            isOneToOne: false
+            referencedRelation: "player_wobblins"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trade_offers_proposer_id_fkey"
+            columns: ["proposer_id"]
+            isOneToOne: false
+            referencedRelation: "player_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trade_offers_proposer_id_fkey"
+            columns: ["proposer_id"]
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "tasks_creator_id_fkey"
-            columns: ["creator_id"]
+            foreignKeyName: "trade_offers_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "player_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trade_offers_recipient_id_fkey"
+            columns: ["recipient_id"]
             isOneToOne: false
             referencedRelation: "players"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "tasks_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "groups"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tasks_reward_wobblin_id_fkey"
-            columns: ["reward_wobblin_id"]
+            foreignKeyName: "trade_offers_requested_wobblin_id_fkey"
+            columns: ["requested_wobblin_id"]
             isOneToOne: false
             referencedRelation: "player_wobblins"
             referencedColumns: ["id"]
           },
         ]
+      }
+      wobblin_level_xp_requirements: {
+        Row: {
+          level: number
+          xp_required: number
+        }
+        Insert: {
+          level: number
+          xp_required: number
+        }
+        Update: {
+          level?: number
+          xp_required?: number
+        }
+        Relationships: []
       }
       wobblin_species: {
         Row: {
@@ -434,38 +537,29 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      player_public_profiles: {
+        Row: {
+          avatar: string | null
+          created_at: string | null
+          id: string | null
+          username: string | null
+        }
+        Insert: {
+          avatar?: string | null
+          created_at?: string | null
+          id?: string | null
+          username?: string | null
+        }
+        Update: {
+          avatar?: string | null
+          created_at?: string | null
+          id?: string | null
+          username?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      accept_task: {
-        Args: { p_task_id: string }
-        Returns: {
-          accepted_at: string | null
-          accepted_by: string | null
-          created_at: string
-          creator_id: string
-          description: string
-          dispute_note: string | null
-          disputed_at: string | null
-          expires_at: string | null
-          group_id: string
-          id: string
-          resolution_note: string | null
-          resolved_at: string | null
-          reward_wobblin_id: string
-          status: string
-          submission_note: string | null
-          submission_photo_path: string | null
-          submitted_at: string | null
-          title: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "tasks"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
       add_wobblin_xp: {
         Args: { p_player_wobblin_id: string; p_xp: number }
         Returns: {
@@ -475,7 +569,6 @@ export type Database = {
           id: string
           last_egg_claimed_at: string | null
           level: number
-          locked_reason: string | null
           nickname: string | null
           player_id: string
           species_id: string
@@ -487,147 +580,18 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      cancel_task: {
-        Args: { p_task_id: string }
-        Returns: {
-          accepted_at: string | null
-          accepted_by: string | null
-          created_at: string
-          creator_id: string
-          description: string
-          dispute_note: string | null
-          disputed_at: string | null
-          expires_at: string | null
-          group_id: string
-          id: string
-          resolution_note: string | null
-          resolved_at: string | null
-          reward_wobblin_id: string
-          status: string
-          submission_note: string | null
-          submission_photo_path: string | null
-          submitted_at: string | null
-          title: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "tasks"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      buy_listed_wobblin: { Args: { p_listing_id: string }; Returns: Json }
+      cancel_listing: { Args: { p_listing_id: string }; Returns: Json }
+      cancel_trade_offer: { Args: { p_offer_id: string }; Returns: Json }
+      claim_daily_essence: { Args: never; Returns: Json }
       claim_egg: { Args: { p_player_wobblin_id: string }; Returns: Json }
-      create_group: {
-        Args: { p_is_public?: boolean; p_name: string }
-        Returns: {
-          created_at: string
-          id: string
-          invite_code: string
-          is_public: boolean
-          name: string
-          owner_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "groups"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      create_task: {
-        Args: {
-          p_description: string
-          p_expires_at?: string
-          p_group_id: string
-          p_reward_wobblin_id: string
-          p_title: string
-        }
-        Returns: {
-          accepted_at: string | null
-          accepted_by: string | null
-          created_at: string
-          creator_id: string
-          description: string
-          dispute_note: string | null
-          disputed_at: string | null
-          expires_at: string | null
-          group_id: string
-          id: string
-          resolution_note: string | null
-          resolved_at: string | null
-          reward_wobblin_id: string
-          status: string
-          submission_note: string | null
-          submission_photo_path: string | null
-          submitted_at: string | null
-          title: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "tasks"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      claim_passive_essence: { Args: never; Returns: Json }
       evolve_wobblin: { Args: { p_player_wobblin_id: string }; Returns: Json }
-      expire_task: {
-        Args: { p_task_id: string }
-        Returns: {
-          accepted_at: string | null
-          accepted_by: string | null
-          created_at: string
-          creator_id: string
-          description: string
-          dispute_note: string | null
-          disputed_at: string | null
-          expires_at: string | null
-          group_id: string
-          id: string
-          resolution_note: string | null
-          resolved_at: string | null
-          reward_wobblin_id: string
-          status: string
-          submission_note: string | null
-          submission_photo_path: string | null
-          submitted_at: string | null
-          title: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "tasks"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+      feed_egg_essence: {
+        Args: { p_egg_id: string; p_essence_amount: number }
+        Returns: Json
       }
-      file_dispute: {
-        Args: { p_reason: string; p_task_id: string }
-        Returns: {
-          accepted_at: string | null
-          accepted_by: string | null
-          created_at: string
-          creator_id: string
-          description: string
-          dispute_note: string | null
-          disputed_at: string | null
-          expires_at: string | null
-          group_id: string
-          id: string
-          resolution_note: string | null
-          resolved_at: string | null
-          reward_wobblin_id: string
-          status: string
-          submission_note: string | null
-          submission_photo_path: string | null
-          submitted_at: string | null
-          title: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "tasks"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      get_weekly_shop: { Args: never; Returns: Json }
       hatch_egg: {
         Args: { p_egg_id: string }
         Returns: {
@@ -637,7 +601,6 @@ export type Database = {
           id: string
           last_egg_claimed_at: string | null
           level: number
-          locked_reason: string | null
           nickname: string | null
           player_id: string
           species_id: string
@@ -649,169 +612,26 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      is_group_member: { Args: { p_group_id: string }; Returns: boolean }
-      join_group: {
-        Args: { p_invite_code: string }
-        Returns: {
-          created_at: string
-          id: string
-          invite_code: string
-          is_public: boolean
-          name: string
-          owner_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "groups"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      join_public_group: {
-        Args: { p_group_id: string }
-        Returns: {
-          created_at: string
-          id: string
-          invite_code: string
-          is_public: boolean
-          name: string
-          owner_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "groups"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      list_public_groups: {
-        Args: never
-        Returns: {
-          created_at: string
-          id: string
-          invite_code: string
-          member_count: number
-          name: string
-          open_task_count: number
-        }[]
-      }
-      request_task: {
-        Args: { p_task_id: string }
-        Returns: {
-          applicant_id: string
-          applied_at: string
-          id: string
-          task_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "task_applications"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      review_task: {
-        Args: {
-          p_approve: boolean
-          p_resolution_note: string
-          p_task_id: string
-        }
-        Returns: {
-          accepted_at: string | null
-          accepted_by: string | null
-          created_at: string
-          creator_id: string
-          description: string
-          dispute_note: string | null
-          disputed_at: string | null
-          expires_at: string | null
-          group_id: string
-          id: string
-          resolution_note: string | null
-          resolved_at: string | null
-          reward_wobblin_id: string
-          status: string
-          submission_note: string | null
-          submission_photo_path: string | null
-          submitted_at: string | null
-          title: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "tasks"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      sacrifice_wobblin: {
-        Args: { p_consumed_wobblin_id: string; p_target_wobblin_id: string }
+      list_wobblin_for_sale: {
+        Args: { p_player_wobblin_id: string; p_price_essence: number }
         Returns: Json
       }
-      select_applicant: {
-        Args: { p_applicant_id: string; p_task_id: string }
-        Returns: {
-          accepted_at: string | null
-          accepted_by: string | null
-          created_at: string
-          creator_id: string
-          description: string
-          dispute_note: string | null
-          disputed_at: string | null
-          expires_at: string | null
-          group_id: string
-          id: string
-          resolution_note: string | null
-          resolved_at: string | null
-          reward_wobblin_id: string
-          status: string
-          submission_note: string | null
-          submission_photo_path: string | null
-          submitted_at: string | null
-          title: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "tasks"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      submit_task: {
+      propose_trade_offer: {
         Args: {
-          p_submission_note: string
-          p_submission_photo_path?: string
-          p_task_id: string
+          p_offered_wobblin_id: string
+          p_recipient_id: string
+          p_requested_wobblin_id: string
         }
-        Returns: {
-          accepted_at: string | null
-          accepted_by: string | null
-          created_at: string
-          creator_id: string
-          description: string
-          dispute_note: string | null
-          disputed_at: string | null
-          expires_at: string | null
-          group_id: string
-          id: string
-          resolution_note: string | null
-          resolved_at: string | null
-          reward_wobblin_id: string
-          status: string
-          submission_note: string | null
-          submission_photo_path: string | null
-          submitted_at: string | null
-          title: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "tasks"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+        Returns: Json
       }
-      withdraw_task_application: {
-        Args: { p_task_id: string }
-        Returns: undefined
+      purchase_shop_listing: { Args: { p_listing_id: string }; Returns: Json }
+      respond_to_trade_offer: {
+        Args: { p_accept: boolean; p_offer_id: string }
+        Returns: Json
+      }
+      spend_essence_for_xp: {
+        Args: { p_essence_amount: number; p_player_wobblin_id: string }
+        Returns: Json
       }
     }
     Enums: {

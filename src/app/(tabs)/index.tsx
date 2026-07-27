@@ -8,18 +8,18 @@ import { EmptyState } from "@/components/EmptyState";
 import { Icon } from "@/components/Icon";
 import { LevelUpBanner } from "@/components/LevelUpBanner";
 import { MonsterCard } from "@/components/MonsterCard";
+import { RewardToast, type RewardToastData } from "@/components/RewardToast";
 import { Skeleton } from "@/components/Skeleton";
 import { XPBar } from "@/components/XPBar";
 import { PLAYER_PORTRAIT } from "@/constants/avatars";
 import { SPECIES_ART, SPECIES_ART_ASPECT } from "@/constants/speciesArt";
 import { COLORS, ELEMENT_COLORS, ELEMENT_ICON, type Element, type Rarity } from "@/constants/theme";
+import { useClaimDailyEssence, useClaimPassiveEssence } from "@/hooks/useEssence";
 import { usePlayer } from "@/hooks/usePlayer";
 import { useScrollScreenContentStyle } from "@/hooks/useTabBarClearance";
-import { useMyActiveTasks } from "@/hooks/useTasks";
 import { useFeaturedWobblin } from "@/hooks/useWobblins";
 import type { Player } from "@/supabase/players";
 import { useSupabase } from "@/supabase/SupabaseProvider";
-import type { Task } from "@/supabase/tasks";
 import type { FeaturedWobblin } from "@/supabase/wobblins";
 import { getErrorMessage } from "@/utils/errors";
 
@@ -36,18 +36,34 @@ export default function HomeScreen() {
 
   const { data: player, isPending: playerPending, error: playerError, refetch: refetchPlayer } = usePlayer(playerId);
   const { data: featured, refetch: refetchFeatured } = useFeaturedWobblin(playerId);
-  const { data: activeTasks, refetch: refetchActiveTasks } = useMyActiveTasks(playerId);
+  const claimDailyEssence = useClaimDailyEssence(playerId);
+  const claimPassiveEssence = useClaimPassiveEssence(playerId);
 
-  // Home stays mounted underneath every pushed screen (task review, sacrifice, evolve,
-  // set-featured), so a mutation performed there can invalidate this screen's queries
-  // while it's frozen and not repaint until it's focused again — refetch on focus rather
-  // than relying on that. Same pattern as Collection/Group detail.
+  const [essenceToast, setEssenceToast] = useState<RewardToastData | null>(null);
+
+  // Home stays mounted underneath every pushed screen (evolve, set-featured),
+  // so a mutation performed there can invalidate this screen's queries while it's frozen
+  // and not repaint until it's focused again — refetch on focus rather than relying on
+  // that. Same pattern as Collection. Passive essence is claimed silently here too, on
+  // every focus, the same way `claim_egg`'s cadence is only ever checked when a screen
+  // that cares about it is actually open.
   useFocusEffect(
     useCallback(() => {
       refetchPlayer();
       refetchFeatured();
-      refetchActiveTasks();
-    }, [refetchPlayer, refetchFeatured, refetchActiveTasks]),
+      claimPassiveEssence.mutate(undefined, {
+        onSuccess: (result) => {
+          if (result.granted > 0) {
+            setEssenceToast({
+              icon: { family: "ionicons", name: "flash" },
+              title: `+${result.granted} Essence`,
+              subtitle: "Collected while you were away.",
+            });
+          }
+        },
+      });
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [refetchPlayer, refetchFeatured, claimPassiveEssence.mutate]),
   );
 
   const [levelUp, setLevelUp] = useState<number | null>(null);
@@ -59,6 +75,7 @@ export default function HomeScreen() {
   return (
     <View className="flex-1 bg-background">
       <LevelUpBanner level={levelUp} />
+      <RewardToast reward={essenceToast} offsetTop={76} />
       <ScrollView className="flex-1" contentContainerStyle={contentStyle}>
         {loading || !player ? (
           error ? (
@@ -70,8 +87,21 @@ export default function HomeScreen() {
           )
         ) : (
           <>
-            <PlayerHeader player={player} />
-            <ActiveTasksCard tasks={activeTasks ?? []} playerId={playerId} onOpen={(id) => router.push(`/task/${id}`)} />
+            <PlayerHeader
+              player={player}
+              onClaimDaily={() =>
+                claimDailyEssence.mutate(undefined, {
+                  onSuccess: (result) =>
+                    setEssenceToast({
+                      icon: { family: "ionicons", name: "flash" },
+                      title: `+${result.granted} Essence`,
+                      subtitle: "Daily reward claimed.",
+                    }),
+                })
+              }
+              claimingDaily={claimDailyEssence.isPending}
+              onOpenShop={() => router.push("/shop")}
+            />
             <FeaturedWobblinCard featured={featured ?? null} onLevelUp={setLevelUp} />
             {error && (
               <View className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3">
@@ -85,92 +115,85 @@ export default function HomeScreen() {
   );
 }
 
-function PlayerHeader({ player }: { player: Player }) {
-  return (
-    <View className="flex-row items-center gap-3 rounded-2xl border border-border bg-surface p-4">
-      <View>
-        <Image
-          source={PLAYER_PORTRAIT}
-          style={{ width: 56, height: 56, borderRadius: 28 }}
-          contentFit="cover"
-        />
-        <View className="absolute -bottom-1 -right-1 h-6 w-6 items-center justify-center rounded-full border border-border bg-surface-raised">
-          <Icon family="ionicons" name="pencil" size={12} color={COLORS.textMuted} />
-        </View>
-      </View>
-      <View className="gap-0.5">
-        <Text className="font-display-bold text-2xl text-text">{player.username}</Text>
-        <Text className="font-sans-medium text-sm text-text-muted">Welcome back</Text>
-      </View>
-    </View>
-  );
-}
-
-function ActiveTasksCard({
-  tasks,
-  playerId,
-  onOpen,
+function PlayerHeader({
+  player,
+  onClaimDaily,
+  claimingDaily,
+  onOpenShop,
 }: {
-  tasks: Task[];
-  playerId: string | undefined;
-  onOpen: (taskId: string) => void;
+  player: Player;
+  onClaimDaily: () => void;
+  claimingDaily: boolean;
+  onOpenShop: () => void;
 }) {
-  if (tasks.length === 0) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  const claimedToday = player.last_daily_essence_claim_date === today;
 
   return (
     <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
-      <View className="flex-row items-center gap-1.5">
-        <Icon family="ionicons" name="clipboard" size={15} color={COLORS.primaryDark} />
-        <Text className="font-display text-sm uppercase tracking-wide text-text-muted">Active Tasks</Text>
+      <View className="flex-row items-center gap-3">
+        <View>
+          <Image
+            source={PLAYER_PORTRAIT}
+            style={{ width: 56, height: 56, borderRadius: 28 }}
+            contentFit="cover"
+          />
+          <View className="absolute -bottom-1 -right-1 h-6 w-6 items-center justify-center rounded-full border border-border bg-surface-raised">
+            <Icon family="ionicons" name="pencil" size={12} color={COLORS.textMuted} />
+          </View>
+        </View>
+        <View className="flex-1 gap-0.5">
+          <Text className="font-display-bold text-2xl text-text">{player.username}</Text>
+          <Text className="font-sans-medium text-sm text-text-muted">Welcome back</Text>
+        </View>
       </View>
-      <View className="gap-2">
-        {tasks.slice(0, 5).map((task) => (
-          <ActiveTaskRow key={task.id} task={task} playerId={playerId} onPress={() => onOpen(task.id)} />
-        ))}
+
+      <View className="flex-row items-center gap-3">
+        <View
+          className="flex-1 flex-row items-center gap-1.5 rounded-full border px-3 py-2"
+          style={{ borderColor: `${COLORS.essence}40`, backgroundColor: `${COLORS.essence}14` }}
+        >
+          <Icon family="ionicons" name="flash" size={15} color={COLORS.essence} />
+          <Text className="font-sans-semibold text-sm" style={{ color: COLORS.essence }}>
+            {player.essence_balance} Essence
+          </Text>
+        </View>
+        <Pressable
+          onPress={onClaimDaily}
+          disabled={claimedToday || claimingDaily}
+          accessibilityRole="button"
+          accessibilityLabel={claimedToday ? "Daily essence already claimed" : "Claim daily essence"}
+          className="flex-row items-center gap-1.5 rounded-full border px-3.5 py-2"
+          style={{
+            borderColor: claimedToday ? COLORS.border : `${COLORS.essence}66`,
+            backgroundColor: claimedToday ? COLORS.surfaceRaised : `${COLORS.essence}1f`,
+            opacity: claimedToday ? 0.6 : 1,
+          }}
+        >
+          <Icon
+            family="ionicons"
+            name={claimedToday ? "checkmark-circle" : "gift-outline"}
+            size={15}
+            color={claimedToday ? COLORS.textMuted : COLORS.essence}
+          />
+          <Text
+            className="font-sans-semibold text-xs"
+            style={{ color: claimedToday ? COLORS.textMuted : COLORS.essence }}
+          >
+            {claimedToday ? "Claimed" : "Daily"}
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={onOpenShop}
+          accessibilityRole="button"
+          accessibilityLabel="Open shop"
+          className="h-10 w-10 items-center justify-center rounded-full border"
+          style={{ borderColor: COLORS.border, backgroundColor: COLORS.surface }}
+        >
+          <Icon family="ionicons" name="storefront-outline" size={17} color={COLORS.textMuted} />
+        </Pressable>
       </View>
     </View>
-  );
-}
-
-function ActiveTaskRow({
-  task,
-  playerId,
-  onPress,
-}: {
-  task: Task;
-  playerId: string | undefined;
-  onPress: () => void;
-}) {
-  const isCreator = task.creator_id === playerId;
-  let waitingOn = "Open — waiting for someone to accept";
-  if (task.status === "accepted") {
-    waitingOn = isCreator ? `Waiting on ${task.acceptor?.username ?? "acceptor"}` : "Waiting on you to submit";
-  } else if (task.status === "submitted") {
-    waitingOn = isCreator ? "Waiting on your review" : "Submitted — awaiting review";
-  }
-
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      className="flex-row items-center gap-3 rounded-xl border border-border bg-surface-raised p-3"
-    >
-      <View
-        className="h-9 w-9 items-center justify-center rounded-full"
-        style={{ backgroundColor: COLORS.primaryLight }}
-      >
-        <Icon family="ionicons" name="clipboard-outline" size={16} color={COLORS.primaryDark} />
-      </View>
-      <View className="flex-1 gap-0.5">
-        <Text className="font-sans-semibold text-sm text-text" numberOfLines={1}>
-          {task.title}
-        </Text>
-        <Text className="font-sans text-xs text-text-subtle" numberOfLines={1}>
-          {waitingOn}
-        </Text>
-      </View>
-      <Icon family="ionicons" name="chevron-forward" size={16} color={COLORS.textSubtle} />
-    </Pressable>
   );
 }
 

@@ -42,7 +42,7 @@ export const COLORS = {
   danger: "#f87171",
 
   gold: "#fbbf24",
-  energy: "#38bdf8",
+  essence: "#38bdf8",
   hp: "#f87171",
   xp: "#c084fc",
 } as const;

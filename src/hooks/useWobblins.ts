@@ -8,7 +8,6 @@ import {
   getPlayerWobblinById,
   getPlayerWobblins,
   getStarterSpecies,
-  sacrificeWobblin,
   type WobblinSpecies,
 } from "@/supabase/wobblins";
 
@@ -76,25 +75,6 @@ export function useEvolveWobblin(playerId: string | undefined) {
     mutationFn: (playerWobblinId: string) => evolveWobblin(playerWobblinId),
     onSuccess: (_result, playerWobblinId) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.wobblin(playerWobblinId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.playerWobblins(playerId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.featuredWobblin(playerId) });
-    },
-  });
-}
-
-/**
- * Sacrifices a duplicate Wobblin from the same evolution chain into the
- * target, granting it XP. Refreshes the target's detail view and the whole
- * collection (the consumed Wobblin is gone).
- */
-export function useSacrificeWobblin(playerId: string | undefined) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ targetId, consumedId }: { targetId: string; consumedId: string }) =>
-      sacrificeWobblin(targetId, consumedId),
-    onSuccess: (_result, { targetId }) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.wobblin(targetId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.playerWobblins(playerId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.featuredWobblin(playerId) });
     },

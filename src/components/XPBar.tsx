@@ -1,9 +1,10 @@
 /* eslint-disable react-hooks/refs -- Animated.Value held in useRef is the standard RN pattern; it's a mutable animation handle, not a component ref, and reading it during render is how Animated interpolation works. */
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Animated, Text, View } from "react-native";
 
 import { Icon, type IconSpec } from "@/components/Icon";
 import { COLORS } from "@/constants/theme";
+import { useWobblinLevelXpRequirements } from "@/hooks/useEssence";
 import { getXpProgress } from "@/utils/xp";
 
 type XPBarProps = {
@@ -34,7 +35,21 @@ export function XPBar({
   icon,
   valuePosition = "inline",
 }: XPBarProps) {
-  const progress = getXpProgress(experience, level);
+  const { data: requirementsData, isPending: requirementsPending } = useWobblinLevelXpRequirements();
+  const requirements = useMemo(() => {
+    const map: Record<number, number> = {};
+    for (const row of requirementsData ?? []) {
+      map[row.level] = row.xp_required;
+    }
+    return map;
+  }, [requirementsData]);
+
+  // Before the (tiny, staleTime: Infinity) requirements table has loaded once,
+  // `requirements` is an empty map — without this guard that reads identically
+  // to "past the level cap" and getXpProgress would report a full bar.
+  const progress = requirementsPending
+    ? { xpIntoLevel: 0, xpForLevel: 0, percent: 0 }
+    : getXpProgress(experience, level, requirements);
 
   const widthAnim = useRef(new Animated.Value(progress.percent)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
@@ -66,7 +81,7 @@ export function XPBar({
 
     prevLevel.current = level;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [level, experience]);
+  }, [level, experience, progress.percent]);
 
   const width = widthAnim.interpolate({
     inputRange: [0, 100],

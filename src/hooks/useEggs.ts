@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { claimEgg, getMyEggs, hatchEgg } from "@/supabase/eggs";
+import { claimEgg, feedEggEssence, getMyEggs, hatchEgg } from "@/supabase/eggs";
 
 import { queryKeys } from "./queryKeys";
 
@@ -32,6 +32,19 @@ export function useHatchEgg(playerId: string | undefined) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.myEggs(playerId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.playerWobblins(playerId) });
+    },
+  });
+}
+
+export function useFeedEggEssence(playerId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ eggId, essenceAmount }: { eggId: string; essenceAmount: number }) =>
+      feedEggEssence(eggId, essenceAmount),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.myEggs(playerId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.player(playerId) });
     },
   });
 }

@@ -13,8 +13,8 @@ export type FeaturedWobblin = PlayerWobblin;
  * The player's featured Wobblin for the home dashboard: whichever one they
  * last set active via `setActiveWobblin`, or — if they haven't chosen one —
  * the first one they came to own (by `acquired_at`, not `created_at` — a
- * task-reward Wobblin can carry a `created_at` from long before this player
- * ever had it, so ordering by that could surface a recently-received
+ * traded or purchased Wobblin can carry a `created_at` from long before this
+ * player ever had it, so ordering by that could surface a recently-received
  * Wobblin as the "starter" ahead of the one they've actually had longest).
  * The active-Wobblin lookup re-filters by `player_id`, so a spoofed
  * `active_wobblin_id` pointing at another player's row just fails to
@@ -116,9 +116,8 @@ export type EvolutionResult = {
 /**
  * Evolves an owned Wobblin into its next stage via the `evolve_wobblin` RPC.
  * Eligibility (does this species have a next stage, has the Wobblin reached
- * the required level, is it locked as a task reward) and the resulting
- * stats are both re-derived server-side — the client only ever reflects
- * what the RPC returns.
+ * the required level) and the resulting species are both re-derived
+ * server-side — the client only ever reflects what the RPC returns.
  */
 export async function evolveWobblin(playerWobblinId: string): Promise<EvolutionResult> {
   const { data, error } = await supabase.rpc("evolve_wobblin", {
@@ -127,30 +126,4 @@ export async function evolveWobblin(playerWobblinId: string): Promise<EvolutionR
 
   if (error) throw error;
   return data as unknown as EvolutionResult;
-}
-
-export type SacrificeResult = {
-  wobblin: Tables<"player_wobblins">;
-  leveled_up: boolean;
-  levels_gained: number;
-  consumed_species_name: string;
-};
-
-/**
- * Consumes a duplicate Wobblin from the same evolution chain to grant XP
- * toward leveling the target, via the `sacrifice_wobblin` RPC. Ownership,
- * chain-matching, and lock checks are all enforced server-side — the client
- * never computes the XP grant itself.
- */
-export async function sacrificeWobblin(
-  targetWobblinId: string,
-  consumedWobblinId: string,
-): Promise<SacrificeResult> {
-  const { data, error } = await supabase.rpc("sacrifice_wobblin", {
-    p_target_wobblin_id: targetWobblinId,
-    p_consumed_wobblin_id: consumedWobblinId,
-  });
-
-  if (error) throw error;
-  return data as unknown as SacrificeResult;
 }
