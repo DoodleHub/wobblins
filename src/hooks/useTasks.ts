@@ -4,9 +4,12 @@ import {
   acceptTask,
   cancelTask,
   createTask,
+  expireTask,
+  fileDispute,
   getActiveTaskForRewardWobblin,
   getGroupTasks,
   getMyActiveTasks,
+  getSubmissionPhotoUrl,
   getTask,
   reviewTask,
   submitTask,
@@ -47,6 +50,21 @@ export function useTaskForRewardWobblin(wobblinId: string | undefined, enabled: 
   });
 }
 
+/**
+ * Signed URL for a submission's evidence photo — the `task-submissions`
+ * bucket is private, so every view needs a freshly-signed URL rather than a
+ * public one. `getSubmissionPhotoUrl` signs for 1 hour; refetched well
+ * before that to avoid ever showing a broken image mid-session.
+ */
+export function useSubmissionPhotoUrl(path: string | null | undefined) {
+  return useQuery({
+    queryKey: queryKeys.submissionPhotoUrl(path),
+    queryFn: () => getSubmissionPhotoUrl(path!),
+    enabled: !!path,
+    staleTime: 45 * 60 * 1000,
+  });
+}
+
 /** Publishing a task locks its reward Wobblin, so the creator's collection needs refreshing too. */
 export function useCreateTask(groupId: string | undefined, playerId: string | undefined) {
   const queryClient = useQueryClient();
@@ -56,13 +74,34 @@ export function useCreateTask(groupId: string | undefined, playerId: string | un
       title,
       description,
       rewardWobblinId,
+      expiresAt,
     }: {
       title: string;
       description: string;
       rewardWobblinId: string;
-    }) => createTask(groupId!, title, description, rewardWobblinId),
+      expiresAt?: string | null;
+    }) => createTask(groupId!, title, description, rewardWobblinId, expiresAt),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.groupTasks(groupId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.playerWobblins(playerId) });
+    },
+  });
+}
+
+/**
+ * Opportunistically flips a stale `open` task to `expired`, freeing its reward
+ * lock. Fired by the group task feed / task detail screens when they notice an
+ * open task past its `expires_at` — a display-only trigger, since `expire_task`
+ * re-validates the deadline server-side regardless of what prompted the call.
+ */
+export function useExpireTask(groupId: string | undefined, playerId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (taskId: string) => expireTask(taskId),
+    onSuccess: (_result, taskId) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.groupTasks(groupId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.task(taskId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.playerWobblins(playerId) });
     },
   });
@@ -84,7 +123,15 @@ export function useSubmitTask(groupId: string | undefined) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ taskId, note }: { taskId: string; note: string }) => submitTask(taskId, note),
+    mutationFn: ({
+      taskId,
+      note,
+      photoPath,
+    }: {
+      taskId: string;
+      note: string;
+      photoPath?: string | null;
+    }) => submitTask(taskId, note, photoPath),
     onSuccess: (_result, { taskId }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.groupTasks(groupId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.task(taskId) });
@@ -104,6 +151,20 @@ export function useReviewTask(groupId: string | undefined, playerId: string | un
       queryClient.invalidateQueries({ queryKey: queryKeys.task(taskId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.playerWobblins(playerId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.featuredWobblin(playerId) });
+    },
+  });
+}
+
+/** Filing a dispute nudges the caller's own reputation counters, so their profile needs refreshing too. */
+export function useFileDispute(groupId: string | undefined, playerId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ taskId, reason }: { taskId: string; reason: string }) => fileDispute(taskId, reason),
+    onSuccess: (_result, { taskId }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.groupTasks(groupId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.task(taskId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.player(playerId) });
     },
   });
 }

@@ -1,5 +1,5 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, ScrollView, Share, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
@@ -8,9 +8,11 @@ import { Icon, type IconSpec } from "@/components/Icon";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { COLORS } from "@/constants/theme";
 import { useGroup, useGroupMembers } from "@/hooks/useGroups";
-import { useGroupTasks } from "@/hooks/useTasks";
+import { useExpireTask, useGroupTasks } from "@/hooks/useTasks";
+import { useSupabase } from "@/supabase/SupabaseProvider";
 import type { GroupMember } from "@/supabase/groups";
 import type { Task, TaskStatus } from "@/supabase/tasks";
+import { formatTimeUntilExpiry, isTaskPastExpiry } from "@/utils/taskExpiry";
 import { getErrorMessage } from "@/utils/errors";
 
 const STATUS_COLOR: Record<TaskStatus, string> = {
@@ -26,18 +28,31 @@ const STATUS_COLOR: Record<TaskStatus, string> = {
 export default function GroupDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { session } = useSupabase();
+  const playerId = session?.user.id;
 
   const { data: group, isPending: groupPending, error: groupError } = useGroup(id);
   const { data: members, refetch: refetchMembers } = useGroupMembers(id);
   const { data: tasks, isPending: tasksPending, refetch: refetchTasks } = useGroupTasks(id);
+  const expireTask = useExpireTask(id, playerId);
+  // Captured once per mount for the countdown display — same rationale as the
+  // egg-cadence "now" mirror on the Monster Detail screen: display-only, since
+  // expire_task/accept_task re-validate the deadline server-side regardless.
+  const [now] = useState(() => Date.now());
 
   // This screen can sit frozen underneath the create-task/task-detail stack routes — a
   // task created or reviewed there invalidates the cache, but the frozen screen doesn't
   // reliably repaint until it's focused again. Same fix as Collection's refetch-on-focus.
+  // Also opportunistically flips any still-`open` task past its expiry, freeing its
+  // reward lock without requiring someone to attempt (and fail) an accept first.
   useFocusEffect(
     useCallback(() => {
-      refetchTasks();
+      refetchTasks().then(({ data }) => {
+        const now = Date.now();
+        data?.filter((t) => isTaskPastExpiry(t, now)).forEach((t) => expireTask.mutate(t.id));
+      });
       refetchMembers();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [refetchTasks, refetchMembers]),
   );
 
@@ -75,7 +90,14 @@ export default function GroupDetailScreen() {
         >
           <Icon family="ionicons" name="chevron-back" size={20} color={COLORS.text} />
         </Pressable>
-        <Text className="font-display-bold text-xl text-text">{group.name}</Text>
+        <View className="flex-row items-center gap-1.5">
+          <Text className="font-display-bold text-xl text-text">{group.name}</Text>
+          {group.is_public && (
+            <View className="rounded-full bg-secondary/15 px-2 py-0.5">
+              <Text className="font-sans-semibold text-[10px] uppercase text-secondary">Public</Text>
+            </View>
+          )}
+        </View>
         <View style={{ width: 40 }} />
       </View>
 
@@ -109,7 +131,7 @@ export default function GroupDetailScreen() {
         {tasksPending ? null : tasks && tasks.length > 0 ? (
           <View className="gap-2">
             {tasks.map((task) => (
-              <TaskRow key={task.id} task={task} onPress={() => router.push(`/task/${task.id}`)} />
+              <TaskRow key={task.id} task={task} now={now} onPress={() => router.push(`/task/${task.id}`)} />
             ))}
           </View>
         ) : (
@@ -143,7 +165,7 @@ function MemberRow({ member }: { member: GroupMember }) {
   );
 }
 
-function TaskRow({ task, onPress }: { task: Task; onPress: () => void }) {
+function TaskRow({ task, now, onPress }: { task: Task; now: number; onPress: () => void }) {
   const rewardName = task.reward.nickname ?? task.reward.species.name;
   const statusIcon: IconSpec = { family: "ionicons", name: "ellipse" };
 
@@ -176,6 +198,14 @@ function TaskRow({ task, onPress }: { task: Task; onPress: () => void }) {
           Reward: {rewardName} (Lv. {task.reward.level})
         </Text>
       </View>
+      {task.status === "open" && task.expires_at && !isTaskPastExpiry(task, now) ? (
+        <View className="flex-row items-center gap-1.5">
+          <Icon family="ionicons" name="time-outline" size={13} color={COLORS.textSubtle} />
+          <Text className="font-sans text-xs text-text-subtle">
+            {formatTimeUntilExpiry(task.expires_at, now)}
+          </Text>
+        </View>
+      ) : null}
     </Pressable>
   );
 }

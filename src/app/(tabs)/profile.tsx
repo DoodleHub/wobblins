@@ -74,6 +74,12 @@ export default function ProfileScreen() {
           value={String(groups?.length ?? 0)}
           label={"Groups\nJoined"}
         />
+        <View className="h-10 w-px bg-border" />
+        <StatColumn
+          icon={{ family: "ionicons", name: "checkmark-done" }}
+          value={String(player.tasks_approved_count)}
+          label={"Tasks\nCompleted"}
+        />
       </View>
 
       <Button label="Sign Out" variant="secondary" onPress={onSignOut} loading={signingOut} />

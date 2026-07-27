@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/components/Button";
@@ -8,11 +8,12 @@ import { EmptyState } from "@/components/EmptyState";
 import { MonsterCard } from "@/components/MonsterCard";
 import { TextField } from "@/components/TextField";
 import { SPECIES_ART } from "@/constants/speciesArt";
-import type { Element, Rarity } from "@/constants/theme";
+import { COLORS, type Element, type Rarity } from "@/constants/theme";
 import { useCreateTask } from "@/hooks/useTasks";
 import { usePlayerWobblins } from "@/hooks/useWobblins";
 import { useSupabase } from "@/supabase/SupabaseProvider";
 import type { PlayerWobblin } from "@/supabase/wobblins";
+import { DEFAULT_TASK_EXPIRY_HOURS, TASK_EXPIRY_PRESETS } from "@/utils/taskExpiry";
 import { getErrorMessage } from "@/utils/errors";
 
 export default function CreateTaskScreen() {
@@ -28,6 +29,7 @@ export default function CreateTaskScreen() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [rewardId, setRewardId] = useState<string | null>(null);
+  const [expiryHours, setExpiryHours] = useState<number | null>(DEFAULT_TASK_EXPIRY_HOURS);
   const [error, setError] = useState<string | null>(null);
 
   const eligibleWobblins = useMemo(
@@ -47,8 +49,10 @@ export default function CreateTaskScreen() {
   const onSubmit = () => {
     if (!canSubmit || !rewardId) return;
     setError(null);
+    const expiresAt =
+      expiryHours === null ? null : new Date(Date.now() + expiryHours * 60 * 60 * 1000).toISOString();
     createTask.mutate(
-      { title: title.trim(), description: description.trim(), rewardWobblinId: rewardId },
+      { title: title.trim(), description: description.trim(), rewardWobblinId: rewardId, expiresAt },
       {
         onSuccess: () => router.back(),
         onError: (err) => setError(getErrorMessage(err)),
@@ -80,6 +84,35 @@ export default function CreateTaskScreen() {
             numberOfLines={3}
             maxLength={280}
           />
+        </View>
+
+        <View className="gap-3">
+          <Text className="font-display text-sm uppercase tracking-wide text-text-muted">Expires</Text>
+          <View className="flex-row flex-wrap gap-2">
+            {TASK_EXPIRY_PRESETS.map((preset) => {
+              const selected = preset.hours === expiryHours;
+              return (
+                <Pressable
+                  key={preset.label}
+                  onPress={() => setExpiryHours(preset.hours)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  className="rounded-full border px-3 py-1.5"
+                  style={{
+                    borderColor: selected ? COLORS.primary : COLORS.border,
+                    backgroundColor: selected ? COLORS.primary : COLORS.surface,
+                  }}
+                >
+                  <Text
+                    className="font-sans-semibold text-xs"
+                    style={{ color: selected ? "#ffffff" : COLORS.textMuted }}
+                  >
+                    {preset.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
 
         <View className="gap-3">

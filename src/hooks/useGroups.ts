@@ -1,6 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { createGroup, getGroup, getGroupMembers, getMyGroups, joinGroup } from "@/supabase/groups";
+import {
+  createGroup,
+  getGroup,
+  getGroupMembers,
+  getMyGroups,
+  joinGroup,
+  joinPublicGroup,
+  listPublicGroups,
+} from "@/supabase/groups";
 
 import { queryKeys } from "./queryKeys";
 
@@ -32,7 +40,7 @@ export function useCreateGroup(playerId: string | undefined) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (name: string) => createGroup(name),
+    mutationFn: ({ name, isPublic }: { name: string; isPublic?: boolean }) => createGroup(name, isPublic),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.myGroups(playerId) });
     },
@@ -46,6 +54,27 @@ export function useJoinGroup(playerId: string | undefined) {
     mutationFn: (inviteCode: string) => joinGroup(inviteCode),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.myGroups(playerId) });
+    },
+  });
+}
+
+/** Groups open to discovery, for the Groups tab's "Discover" browse list. */
+export function usePublicGroups(enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.publicGroups(),
+    queryFn: () => listPublicGroups(),
+    enabled,
+  });
+}
+
+export function useJoinPublicGroup(playerId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (groupId: string) => joinPublicGroup(groupId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.myGroups(playerId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.publicGroups() });
     },
   });
 }
