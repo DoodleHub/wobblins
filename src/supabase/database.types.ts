@@ -52,31 +52,34 @@ export type Database = {
       }
       eggs: {
         Row: {
-          claimed_at: string
+          collected_at: string | null
+          generated_at: string
+          hatch_ready_at: string | null
           hatched_at: string | null
           id: string
           owner_id: string
           source_wobblin_id: string | null
           species_id: string
-          xp: number
         }
         Insert: {
-          claimed_at?: string
+          collected_at?: string | null
+          generated_at?: string
+          hatch_ready_at?: string | null
           hatched_at?: string | null
           id?: string
           owner_id: string
           source_wobblin_id?: string | null
           species_id: string
-          xp?: number
         }
         Update: {
-          claimed_at?: string
+          collected_at?: string | null
+          generated_at?: string
+          hatch_ready_at?: string | null
           hatched_at?: string | null
           id?: string
           owner_id?: string
           source_wobblin_id?: string | null
           species_id?: string
-          xp?: number
         }
         Relationships: [
           {
@@ -112,24 +115,27 @@ export type Database = {
       essence_config: {
         Row: {
           daily_claim_amount: number
-          egg_hatch_xp_required: number
+          egg_hatch_hours: number
           id: boolean
+          max_egg_slots: number
           passive_accrual_cap_hours: number
           summon_cost_essence: number
           xp_per_essence: number
         }
         Insert: {
           daily_claim_amount?: number
-          egg_hatch_xp_required?: number
+          egg_hatch_hours?: number
           id?: boolean
+          max_egg_slots?: number
           passive_accrual_cap_hours?: number
           summon_cost_essence?: number
           xp_per_essence?: number
         }
         Update: {
           daily_claim_amount?: number
-          egg_hatch_xp_required?: number
+          egg_hatch_hours?: number
           id?: boolean
+          max_egg_slots?: number
           passive_accrual_cap_hours?: number
           summon_cost_essence?: number
           xp_per_essence?: number
@@ -602,13 +608,28 @@ export type Database = {
         Returns: Json
       }
       claim_daily_essence: { Args: never; Returns: Json }
-      claim_egg: { Args: { p_player_wobblin_id: string }; Returns: Json }
+      claim_egg: {
+        Args: { p_egg_id: string }
+        Returns: {
+          collected_at: string | null
+          generated_at: string
+          hatch_ready_at: string | null
+          hatched_at: string | null
+          id: string
+          owner_id: string
+          source_wobblin_id: string | null
+          species_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "eggs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       claim_passive_essence: { Args: never; Returns: Json }
       evolve_wobblin: { Args: { p_player_wobblin_id: string }; Returns: Json }
-      feed_egg_essence: {
-        Args: { p_egg_id: string; p_essence_amount: number }
-        Returns: Json
-      }
+      generate_egg: { Args: { p_player_wobblin_id: string }; Returns: Json }
       get_player_achievements: {
         Args: never
         Returns: {

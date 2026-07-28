@@ -7,6 +7,7 @@ export const queryKeys = {
   starterSpecies: () => ["starterSpecies"] as const,
   allSpecies: () => ["allSpecies"] as const,
   myEggs: (playerId: string | undefined) => ["myEggs", playerId] as const,
+  egg: (id: string | undefined) => ["egg", id] as const,
   essenceConfig: () => ["essenceConfig"] as const,
   essenceRequirements: () => ["essenceRequirements"] as const,
   essenceGenerationRates: () => ["essenceGenerationRates"] as const,
@@ -15,4 +16,6 @@ export const queryKeys = {
   offersForListing: (listingId: string | undefined) => ["offersForListing", listingId] as const,
   myOffers: (playerId: string | undefined) => ["myOffers", playerId] as const,
   achievements: (playerId: string | undefined) => ["achievements", playerId] as const,
+  pendingOffersCount: (playerId: string | undefined, listingIds: string[]) =>
+    ["pendingOffersCount", playerId, listingIds] as const,
 };

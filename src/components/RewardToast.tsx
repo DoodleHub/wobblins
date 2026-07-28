@@ -37,12 +37,15 @@ export function RewardToast({
   useEffect(() => {
     if (!reward) return;
 
+    anim.stopAnimation();
     anim.setValue(0);
-    Animated.sequence([
+    const sequence = Animated.sequence([
       Animated.spring(anim, { toValue: 1, useNativeDriver: true, friction: 5, tension: 60 }),
       Animated.delay(1800),
       Animated.timing(anim, { toValue: 0, duration: 250, useNativeDriver: true }),
-    ]).start();
+    ]);
+    sequence.start();
+    return () => sequence.stop();
   }, [reward, anim]);
 
   if (!reward) return null;

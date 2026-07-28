@@ -1,3 +1,16 @@
+import type { Element } from "@/constants/theme";
+
+import darkEgg from "@/assets/images/wobblins/species/dark-egg.png";
+import fireEgg from "@/assets/images/wobblins/species/fire-egg.png";
+import grassEgg from "@/assets/images/wobblins/species/grass-egg.png";
+import iceEgg from "@/assets/images/wobblins/species/ice-egg.png";
+import lightEgg from "@/assets/images/wobblins/species/light-egg.png";
+import poisonEgg from "@/assets/images/wobblins/species/poison-egg.png";
+import rockEgg from "@/assets/images/wobblins/species/rock-egg.png";
+import thunderEgg from "@/assets/images/wobblins/species/thunder-egg.png";
+import waterEgg from "@/assets/images/wobblins/species/water-egg.png";
+import windEgg from "@/assets/images/wobblins/species/wind-egg.png";
+
 import abyssLord from "@/assets/images/wobblins/species/abyss-lord.png";
 import ancientTreant from "@/assets/images/wobblins/species/ancient-treant.png";
 import aquabub from "@/assets/images/wobblins/species/aquabub.png";
@@ -282,6 +295,20 @@ export const SPECIES_ART: Record<string, number> = {
  * portrait's container from this ratio (see the Wobblin detail hero) rather
  * than forcing every species into one fixed box.
  */
+/** An unhatched egg's portrait, keyed by its species' element (one shared image per element, not per species). */
+export const ELEMENT_EGG_ART: Record<Element, number> = {
+  fire: fireEgg,
+  water: waterEgg,
+  grass: grassEgg,
+  thunder: thunderEgg,
+  dark: darkEgg,
+  ice: iceEgg,
+  rock: rockEgg,
+  wind: windEgg,
+  light: lightEgg,
+  poison: poisonEgg,
+};
+
 export const SPECIES_ART_ASPECT: Record<string, number> = {
   "Abyss Behemoth": 1.8894,
   "Abyss Lord": 1.1551,

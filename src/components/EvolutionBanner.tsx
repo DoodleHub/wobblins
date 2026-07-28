@@ -20,14 +20,17 @@ export function EvolutionBanner({ speciesName, onDismiss }: EvolutionBannerProps
   useEffect(() => {
     if (speciesName == null) return;
 
+    anim.stopAnimation();
     anim.setValue(0);
-    Animated.sequence([
+    const sequence = Animated.sequence([
       Animated.spring(anim, { toValue: 1, useNativeDriver: true, friction: 5, tension: 60 }),
       Animated.delay(1800),
       Animated.timing(anim, { toValue: 0, duration: 250, useNativeDriver: true }),
-    ]).start(({ finished }) => {
+    ]);
+    sequence.start(({ finished }) => {
       if (finished) onDismiss?.();
     });
+    return () => sequence.stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [speciesName, anim]);
 

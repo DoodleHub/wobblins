@@ -2,68 +2,75 @@ import { supabase } from "./client";
 import type { Tables } from "./database.types";
 import type { WobblinSpecies } from "./wobblins";
 
-export type Egg = Tables<"eggs"> & { species: WobblinSpecies };
+const EGG_SELECT = "*, species:wobblin_species(*), source_wobblin:player_wobblins(id, nickname, species:wobblin_species(name))";
 
-/** Every egg the player has claimed, newest first — includes already-hatched ones for history. */
+export type Egg = Tables<"eggs"> & {
+  species: WobblinSpecies;
+  /** The stage-2 Wobblin that produced this egg — null if it's since stopped existing (evolved away, sacrificed, sold, etc.), since `source_wobblin_id` is nullable on delete. */
+  source_wobblin: { id: string; nickname: string | null; species: { name: string } } | null;
+};
+
+/**
+ * Every egg the player owns, newest first — includes eggs still sitting in a
+ * source Wobblin's slot (`collected_at` null), claimed-but-not-hatched eggs,
+ * and already-hatched ones for history.
+ */
 export async function getMyEggs(playerId: string) {
   const { data, error } = await supabase
     .from("eggs")
-    .select("*, species:wobblin_species(*)")
+    .select(EGG_SELECT)
     .eq("owner_id", playerId)
-    .order("claimed_at", { ascending: false });
+    .order("generated_at", { ascending: false });
 
   if (error) throw error;
-  return data as Egg[];
+  return data as unknown as Egg[];
 }
 
-export type ClaimEggResult = { egg: Tables<"eggs">; next_egg_at: string };
+/** A single owned egg by id, for the Egg Detail screen. RLS already scopes this to the caller's own eggs. */
+export async function getEggById(id: string) {
+  const { data, error } = await supabase.from("eggs").select(EGG_SELECT).eq("id", id).maybeSingle();
+
+  if (error) throw error;
+  return data as unknown as Egg | null;
+}
+
+export type GenerateEggResult = { egg: Tables<"eggs">; next_egg_at: string };
 
 /**
- * Claims an egg from a fully-evolved (stage 2) Wobblin via the `claim_egg`
- * RPC. Eligibility (is this Wobblin stage 2, has its cadence elapsed) is
- * re-derived server-side from `last_egg_claimed_at` — the client never
- * decides when an egg is available.
+ * Produces a new egg into one of a fully-evolved (stage 2) Wobblin's slots
+ * via the `generate_egg` RPC. Eligibility (is this Wobblin stage 2, has its
+ * cadence elapsed, are both of its slots already holding an unclaimed egg)
+ * is re-derived server-side — the client never decides when a slot opens up.
  */
-export async function claimEgg(playerWobblinId: string): Promise<ClaimEggResult> {
-  const { data, error } = await supabase.rpc("claim_egg", { p_player_wobblin_id: playerWobblinId });
+export async function generateEgg(playerWobblinId: string): Promise<GenerateEggResult> {
+  const { data, error } = await supabase.rpc("generate_egg", { p_player_wobblin_id: playerWobblinId });
 
   if (error) throw error;
-  return data as unknown as ClaimEggResult;
+  return data as unknown as GenerateEggResult;
 }
 
 /**
- * Hatches an egg into a new Stage 0 Wobblin via the `hatch_egg` RPC. The
- * server re-validates that `eggs.xp` has reached `essence_config`'s hatch
- * threshold — the client only shows the ready state, it doesn't enforce it.
+ * Claims an egg out of its source Wobblin's slot into the player's
+ * Collection via the `claim_egg` RPC. This frees the slot for another egg to
+ * generate, and starts the fixed hatch countdown (`hatch_ready_at`). Allowed
+ * even if only one of the two slots is currently holding an egg.
+ */
+export async function claimEgg(eggId: string) {
+  const { data, error } = await supabase.rpc("claim_egg", { p_egg_id: eggId });
+
+  if (error) throw error;
+  return data as Tables<"eggs">;
+}
+
+/**
+ * Hatches a claimed egg into a new Stage 0 Wobblin via the `hatch_egg` RPC.
+ * The server re-validates that the egg has been claimed and that
+ * `hatch_ready_at` has passed — the client only shows the ready state, it
+ * doesn't enforce it.
  */
 export async function hatchEgg(eggId: string) {
   const { data, error } = await supabase.rpc("hatch_egg", { p_egg_id: eggId });
 
   if (error) throw error;
   return data as Tables<"player_wobblins">;
-}
-
-export type FeedEggEssenceResult = {
-  egg: Tables<"eggs">;
-  essence_spent: number;
-  ready_to_hatch: boolean;
-  new_balance: number;
-};
-
-/**
- * Feeds essence into an unhatched egg's XP bar via the `feed_egg_essence`
- * RPC. The server caps the actual spend at whatever's left to fill the bar
- * (no charging for overflow) and returns the resulting balance/progress.
- */
-export async function feedEggEssence(
-  eggId: string,
-  essenceAmount: number,
-): Promise<FeedEggEssenceResult> {
-  const { data, error } = await supabase.rpc("feed_egg_essence", {
-    p_egg_id: eggId,
-    p_essence_amount: essenceAmount,
-  });
-
-  if (error) throw error;
-  return data as unknown as FeedEggEssenceResult;
 }

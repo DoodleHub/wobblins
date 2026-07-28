@@ -20,12 +20,15 @@ export function LevelUpBanner({ level, label = "Level Up!" }: LevelUpBannerProps
   useEffect(() => {
     if (level == null) return;
 
+    anim.stopAnimation();
     anim.setValue(0);
-    Animated.sequence([
+    const sequence = Animated.sequence([
       Animated.spring(anim, { toValue: 1, useNativeDriver: true, friction: 5, tension: 60 }),
       Animated.delay(1400),
       Animated.timing(anim, { toValue: 0, duration: 250, useNativeDriver: true }),
-    ]).start();
+    ]);
+    sequence.start();
+    return () => sequence.stop();
   }, [level, anim]);
 
   if (level == null) return null;

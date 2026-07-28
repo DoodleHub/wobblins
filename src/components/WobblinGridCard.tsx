@@ -13,6 +13,7 @@ export function WobblinGridCard({
   width,
   onPress,
   selected,
+  pendingEggCount = 0,
 }: {
   wobblin: PlayerWobblin;
   width: number;
@@ -20,6 +21,8 @@ export function WobblinGridCard({
   onPress?: () => void;
   /** When provided (even `false`), renders a selection ring + checkmark badge instead of the plain rarity tint — for multi-select pickers. */
   selected?: boolean;
+  /** Unclaimed eggs currently sitting in this Wobblin's slots — only ever nonzero for a stage-2 Wobblin. Renders a small egg badge nudging the player to open its detail screen and claim them; omit or pass 0 to hide it (e.g. picker screens that don't need the nudge). */
+  pendingEggCount?: number;
 }) {
   const router = useRouter();
 
@@ -29,18 +32,19 @@ export function WobblinGridCard({
   const elementColor = ELEMENT_COLORS[element];
   const rarityColor = RARITY_COLORS[rarity];
   const art = SPECIES_ART[wobblin.species.name];
+  const hasPendingEggs = pendingEggCount > 0;
 
   return (
     <Pressable
       onPress={onPress ?? (() => router.push(`/wobblin/${wobblin.id}`))}
       accessibilityRole={selected === undefined ? "button" : "checkbox"}
-      accessibilityLabel={name}
+      accessibilityLabel={hasPendingEggs ? `${name}, ${pendingEggCount} egg${pendingEggCount > 1 ? "s" : ""} waiting to be claimed` : name}
       accessibilityState={selected === undefined ? undefined : { checked: selected }}
       className="gap-1 overflow-hidden rounded-2xl border p-2"
       style={{
         width,
-        borderColor: selected ? COLORS.primary : `${rarityColor}55`,
-        backgroundColor: selected ? COLORS.primaryLight : `${rarityColor}14`,
+        borderColor: selected ? COLORS.primary : hasPendingEggs ? `${COLORS.gold}88` : `${rarityColor}55`,
+        backgroundColor: selected ? COLORS.primaryLight : hasPendingEggs ? `${COLORS.gold}14` : `${rarityColor}14`,
       }}
     >
       <View className="aspect-square items-center justify-end">
@@ -76,6 +80,19 @@ export function WobblinGridCard({
             }}
           >
             {selected && <Icon family="ionicons" name="checkmark" size={14} color="#ffffff" />}
+          </View>
+        )}
+        {hasPendingEggs && (
+          <View
+            className="absolute bottom-0 left-0 flex-row items-center gap-0.5 rounded-full px-1.5 py-0.5"
+            style={{ backgroundColor: `${COLORS.background}cc` }}
+          >
+            <Icon family="material-community" name="egg-easter" size={11} color={COLORS.gold} />
+            {pendingEggCount > 1 && (
+              <Text className="font-sans-bold text-[10px]" style={{ color: COLORS.gold }}>
+                {pendingEggCount}
+              </Text>
+            )}
           </View>
         )}
       </View>

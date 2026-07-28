@@ -1,5 +1,4 @@
 import type { IconSpec } from "@/components/Icon";
-import { COLORS } from "@/constants/theme";
 
 export type AchievementMetric =
   | "wobblins_owned"
@@ -29,10 +28,4 @@ export const ACHIEVEMENT_METRIC_ICON: Record<AchievementMetric, IconSpec> = {
   marketplace_sales_count: { family: "ionicons", name: "storefront" },
   summons_count: { family: "ionicons", name: "sparkles" },
   essence_earned_lifetime: { family: "ionicons", name: "flash" },
-};
-
-export const ACHIEVEMENT_TIER_COLORS: Record<AchievementTier, string> = {
-  bronze: "#c2793d",
-  silver: "#b0b7c6",
-  gold: COLORS.gold,
 };

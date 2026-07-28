@@ -170,6 +170,20 @@ export async function respondToWobblinOffer(
   return data as unknown as RespondToWobblinOfferResult;
 }
 
+/** Total still-pending offers across a set of the caller's own listings, for the Home screen's "offers waiting" nudge. */
+export async function getPendingOffersCount(listingIds: string[]): Promise<number> {
+  if (listingIds.length === 0) return 0;
+
+  const { count, error } = await supabase
+    .from("marketplace_offers")
+    .select("id", { count: "exact", head: true })
+    .in("listing_id", listingIds)
+    .eq("status", "pending");
+
+  if (error) throw error;
+  return count ?? 0;
+}
+
 /** Cancels the caller's own pending offer via the `cancel_wobblin_offer` RPC. */
 export async function cancelWobblinOffer(offerId: string) {
   const { data, error } = await supabase.rpc("cancel_wobblin_offer", { p_offer_id: offerId });

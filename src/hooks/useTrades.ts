@@ -8,6 +8,7 @@ import {
   getMyListings,
   getMyOffers,
   getOffersForListing,
+  getPendingOffersCount,
   listWobblinForOffers,
   listWobblinForSale,
   proposeWobblinOffer,
@@ -135,6 +136,15 @@ export function useRespondToWobblinOffer(playerId: string | undefined, listingId
       queryClient.invalidateQueries({ queryKey: queryKeys.featuredWobblin(playerId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.achievements(playerId) });
     },
+  });
+}
+
+/** Total pending offers across the caller's own active offers-type listings, for the Home screen nudge. */
+export function usePendingOffersCount(playerId: string | undefined, listingIds: string[]) {
+  return useQuery({
+    queryKey: queryKeys.pendingOffersCount(playerId, listingIds),
+    queryFn: () => getPendingOffersCount(listingIds),
+    enabled: !!playerId,
   });
 }
 
