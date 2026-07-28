@@ -362,6 +362,7 @@ export type Database = {
           id: string
           last_egg_claimed_at: string | null
           level: number
+          locked_reason: string | null
           nickname: string | null
           player_id: string
           species_id: string
@@ -373,6 +374,7 @@ export type Database = {
           id?: string
           last_egg_claimed_at?: string | null
           level?: number
+          locked_reason?: string | null
           nickname?: string | null
           player_id: string
           species_id: string
@@ -384,6 +386,7 @@ export type Database = {
           id?: string
           last_egg_claimed_at?: string | null
           level?: number
+          locked_reason?: string | null
           nickname?: string | null
           player_id?: string
           species_id?: string
@@ -589,6 +592,7 @@ export type Database = {
           id: string
           last_egg_claimed_at: string | null
           level: number
+          locked_reason: string | null
           nickname: string | null
           player_id: string
           species_id: string
@@ -656,6 +660,7 @@ export type Database = {
           id: string
           last_egg_claimed_at: string | null
           level: number
+          locked_reason: string | null
           nickname: string | null
           player_id: string
           species_id: string
@@ -681,6 +686,10 @@ export type Database = {
       }
       respond_to_wobblin_offer: {
         Args: { p_accept: boolean; p_offer_id: string }
+        Returns: Json
+      }
+      sacrifice_wobblin: {
+        Args: { p_consumed_wobblin_id: string; p_target_wobblin_id: string }
         Returns: Json
       }
       spend_essence_for_xp: {

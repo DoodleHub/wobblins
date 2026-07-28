@@ -56,10 +56,9 @@ export default function TradeScreen() {
     }, [refetchListings, refetchMyListings, refetchMyOffers]),
   );
 
-  const activeMyListingWobblinIds = new Set(
-    (myListings ?? []).filter((l) => l.status === "active").map((l) => l.player_wobblin_id),
-  );
-  const sellable = (myWobblins ?? []).filter((w) => !activeMyListingWobblinIds.has(w.id));
+  // A Wobblin already listed (essence or offers) carries `locked_reason` — no
+  // need to cross-reference listings separately, the flag is authoritative.
+  const sellable = (myWobblins ?? []).filter((w) => w.locked_reason == null);
   const othersListings = (listings ?? []).filter((l) => l.seller_id !== playerId);
   const myActiveListings = (myListings ?? []).filter((l) => l.status === "active");
   const myPendingOfferByListingId = new Map(

@@ -8,6 +8,7 @@ import {
   getPlayerWobblinById,
   getPlayerWobblins,
   getStarterSpecies,
+  sacrificeWobblin,
   type WobblinSpecies,
 } from "@/supabase/wobblins";
 
@@ -75,6 +76,31 @@ export function useEvolveWobblin(playerId: string | undefined) {
     mutationFn: (playerWobblinId: string) => evolveWobblin(playerWobblinId),
     onSuccess: (_result, playerWobblinId) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.wobblin(playerWobblinId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.playerWobblins(playerId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.featuredWobblin(playerId) });
+    },
+  });
+}
+
+/**
+ * Feeds a duplicate Wobblin to another owned Wobblin for XP via
+ * `sacrifice_wobblin` — the consumed Wobblin is permanently deleted server-side.
+ * There's no batch RPC, so a multi-select "feed" flow calls this once per
+ * duplicate in sequence; each call still needs its own cache refresh.
+ */
+export function useSacrificeWobblin(playerId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      targetWobblinId,
+      consumedWobblinId,
+    }: {
+      targetWobblinId: string;
+      consumedWobblinId: string;
+    }) => sacrificeWobblin(targetWobblinId, consumedWobblinId),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.wobblin(result.wobblin.id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.playerWobblins(playerId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.featuredWobblin(playerId) });
     },

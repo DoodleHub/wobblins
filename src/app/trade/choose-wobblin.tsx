@@ -8,7 +8,6 @@ import { Icon } from "@/components/Icon";
 import { WobblinGridCard } from "@/components/WobblinGridCard";
 import { COLORS, type Element } from "@/constants/theme";
 import { useScrollScreenContentStyle } from "@/hooks/useTabBarClearance";
-import { useMyListings } from "@/hooks/useTrades";
 import { useAllSpecies, usePlayerWobblins } from "@/hooks/useWobblins";
 import { useSupabase } from "@/supabase/SupabaseProvider";
 import type { PlayerWobblin } from "@/supabase/wobblins";
@@ -32,7 +31,6 @@ export default function ChooseWobblinToSellScreen() {
   const contentStyle = useScrollScreenContentStyle(CARD_GAP);
 
   const { data: myWobblins, isPending } = usePlayerWobblins(playerId);
-  const { data: myListings } = useMyListings(playerId);
   const { data: allSpecies } = useAllSpecies();
   const [filter, setFilter] = useState<ElementFilterValue>("all");
 
@@ -48,10 +46,9 @@ export default function ChooseWobblinToSellScreen() {
   }, [allSpecies]);
 
   const sellable = useMemo(() => {
-    const activeListingWobblinIds = new Set(
-      (myListings ?? []).filter((l) => l.status === "active").map((l) => l.player_wobblin_id),
-    );
-    let eligible = (myWobblins ?? []).filter((w) => !activeListingWobblinIds.has(w.id));
+    // A Wobblin already listed (essence or offers) carries `locked_reason` — no
+    // need to cross-reference listings separately, the flag is authoritative.
+    let eligible = (myWobblins ?? []).filter((w) => w.locked_reason == null);
     if (filter !== "all") eligible = eligible.filter((w) => w.species.element.toLowerCase() === filter);
     return [...eligible].sort((a, b) => {
       const elementDiff =
@@ -64,7 +61,7 @@ export default function ChooseWobblinToSellScreen() {
       if (chainDiff !== 0) return chainDiff;
       return a.species.stage - b.species.stage;
     });
-  }, [myWobblins, myListings, chainBaseName, filter]);
+  }, [myWobblins, chainBaseName, filter]);
 
   const onPick = (wobblin: PlayerWobblin) => {
     router.push({ pathname: "/trade/list-wobblin", params: { wobblinId: wobblin.id } });

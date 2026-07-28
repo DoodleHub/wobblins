@@ -127,3 +127,33 @@ export async function evolveWobblin(playerWobblinId: string): Promise<EvolutionR
   if (error) throw error;
   return data as unknown as EvolutionResult;
 }
+
+export type SacrificeResult = {
+  wobblin: PlayerWobblin;
+  consumed_species_name: string;
+  consumed_stage: number;
+  xp_granted: number;
+  leveled_up: boolean;
+  levels_gained: number;
+};
+
+/**
+ * Feeds a duplicate Wobblin (same evolution chain, permanently consumed) to
+ * another owned Wobblin for XP via the `sacrifice_wobblin` RPC. XP scales
+ * with the consumed Wobblin's level *and* its evolution stage — a stage-2
+ * duplicate is worth 3x a stage-0 one at the same level — so ownership
+ * transfer, the same-chain check, and the XP formula are all re-derived
+ * server-side rather than trusted from the client.
+ */
+export async function sacrificeWobblin(
+  targetWobblinId: string,
+  consumedWobblinId: string,
+): Promise<SacrificeResult> {
+  const { data, error } = await supabase.rpc("sacrifice_wobblin", {
+    p_target_wobblin_id: targetWobblinId,
+    p_consumed_wobblin_id: consumedWobblinId,
+  });
+
+  if (error) throw error;
+  return data as unknown as SacrificeResult;
+}

@@ -43,7 +43,7 @@ export default function CollectionScreen() {
   const cardWidth = (width - SCREEN_PADDING * 2 - CARD_GAP * 2) / 3;
 
   const { data: wobblins, isPending, error, refetch: refetchWobblins } = usePlayerWobblins(playerId);
-  const { data: allSpecies } = useAllSpecies();
+  const { data: allSpecies, isPending: isSpeciesPending } = useAllSpecies();
   const { data: eggs, refetch: refetchEggs } = useMyEggs(playerId);
 
   // Tab screens (and any screen underneath a pushed stack route) can be frozen by the
@@ -126,7 +126,7 @@ export default function CollectionScreen() {
     });
   }, [items, filter, search, chainBaseName]);
 
-  if (isPending) {
+  if (isPending || isSpeciesPending) {
     return <CollectionSkeleton />;
   }
 

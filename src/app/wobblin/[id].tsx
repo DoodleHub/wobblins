@@ -16,7 +16,7 @@ import { COLORS, ELEMENT_COLORS, type Element, type Rarity } from "@/constants/t
 import { useClaimEgg, useMyEggs } from "@/hooks/useEggs";
 import { useEssenceConfig, useSpendEssenceForXp, useWobblinLevelXpRequirements } from "@/hooks/useEssence";
 import { usePlayer, useSetActiveWobblin } from "@/hooks/usePlayer";
-import { useAllSpecies, useEvolveWobblin, useFeaturedWobblin, useWobblin } from "@/hooks/useWobblins";
+import { useAllSpecies, useEvolveWobblin, useFeaturedWobblin, usePlayerWobblins, useWobblin } from "@/hooks/useWobblins";
 import type { Egg } from "@/supabase/eggs";
 import { useSupabase } from "@/supabase/SupabaseProvider";
 import { getErrorMessage } from "@/utils/errors";
@@ -42,6 +42,7 @@ export default function MonsterDetailScreen() {
   const spendEssenceForXp = useSpendEssenceForXp(playerId);
   const { data: essenceConfig } = useEssenceConfig();
   const { data: xpRequirementsData } = useWobblinLevelXpRequirements();
+  const { data: myWobblins, refetch: refetchMyWobblins } = usePlayerWobblins(playerId);
 
   // This screen is a pushed stack route that can sit frozen underneath other
   // pushed screens (e.g. hatching/claiming eggs from the Collection tab, or
@@ -55,7 +56,8 @@ export default function MonsterDetailScreen() {
       refetchFeatured();
       refetchPlayer();
       refetchEggs();
-    }, [refetchWobblin, refetchFeatured, refetchPlayer, refetchEggs]),
+      refetchMyWobblins();
+    }, [refetchWobblin, refetchFeatured, refetchPlayer, refetchEggs, refetchMyWobblins]),
   );
 
   const [levelUp, setLevelUp] = useState<number | null>(null);
@@ -100,6 +102,7 @@ export default function MonsterDetailScreen() {
   const art = SPECIES_ART[wobblin.species.name];
   const isFeatured = featured?.id === wobblin.id;
   const isOwner = wobblin.player_id === playerId;
+  const isLocked = wobblin.locked_reason != null;
   const caughtOn = new Date(wobblin.acquired_at).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
@@ -125,6 +128,13 @@ export default function MonsterDetailScreen() {
   const levelUpQuotes = LEVEL_UP_STEPS.map((levels) =>
     getLevelUpQuote(wobblin.level, wobblin.experience, levels, xpRequirements, essenceConfig?.xp_per_essence ?? 1),
   );
+
+  // Any other owned Wobblin can be sacrificed to this one, not just same-chain
+  // duplicates — the picker screen does the actual selecting. Locked (listed on
+  // the marketplace) Wobblins aren't eligible fodder.
+  const eligibleSacrificeCount = (myWobblins ?? []).filter(
+    (w) => w.id !== wobblin.id && w.locked_reason == null,
+  ).length;
 
   const onEvolve = () => {
     setEvolveError(null);
@@ -185,7 +195,7 @@ export default function MonsterDetailScreen() {
 
           <Pressable
             onPress={() => setActiveWobblin.mutate(wobblin.id)}
-            disabled={isFeatured || setActiveWobblin.isPending}
+            disabled={isFeatured || isLocked || setActiveWobblin.isPending}
             accessibilityRole="button"
             accessibilityLabel={isFeatured ? "Featured Wobblin" : "Set as featured Wobblin"}
             className="flex-row items-center gap-1.5 rounded-full border px-3.5 py-2"
@@ -208,6 +218,18 @@ export default function MonsterDetailScreen() {
             </Text>
           </Pressable>
         </View>
+
+        {isLocked && (
+          <View
+            className="flex-row items-center gap-2 rounded-2xl border p-3"
+            style={{ borderColor: `${COLORS.gold}40`, backgroundColor: `${COLORS.gold}0f` }}
+          >
+            <Icon family="ionicons" name="lock-closed" size={15} color={COLORS.gold} />
+            <Text className="flex-1 font-sans-medium text-xs text-text-muted">
+              Listed on the marketplace — cancel the listing to evolve, feed, or feature {name}.
+            </Text>
+          </View>
+        )}
 
         <MonsterHero
           name={name}
@@ -293,7 +315,11 @@ export default function MonsterDetailScreen() {
               </View>
             )}
 
-            {readyToEvolve ? (
+            {isLocked ? (
+              <Text className="font-sans text-sm text-text-muted">
+                Listed on the marketplace — cancel the listing to evolve {name}.
+              </Text>
+            ) : readyToEvolve ? (
               <Button label="Evolve" onPress={onEvolve} loading={evolveWobblin.isPending} />
             ) : (
               <Text className="font-sans text-sm text-text-muted">
@@ -324,80 +350,116 @@ export default function MonsterDetailScreen() {
               Spend essence for an instant level boost.
             </Text>
 
-            <View className="flex-row flex-wrap gap-2.5">
-              {levelUpQuotes.map((quote) => {
-                const affordable = quote.reachable && quote.essenceCost <= essenceBalance;
-                const isThisPending = pendingLevelStep === quote.levels && spendEssenceForXp.isPending;
-                const disabled = !affordable || spendEssenceForXp.isPending;
-
-                return (
-                  <Pressable
-                    key={quote.levels}
-                    onPress={() => onFeedXp(quote.levels, quote.essenceCost)}
-                    disabled={disabled}
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                      quote.reachable
-                        ? `Spend ${quote.essenceCost} essence for ${quote.levels} level${quote.levels > 1 ? "s" : ""}`
-                        : `${name} is at the level cap`
-                    }
-                    accessibilityState={{ disabled }}
-                    className="items-center gap-1.5 rounded-xl border py-3"
-                    style={{
-                      width: "48%",
-                      borderColor: affordable ? `${COLORS.essence}55` : COLORS.border,
-                      backgroundColor: affordable ? `${COLORS.essence}14` : COLORS.surface,
-                      opacity: disabled && !isThisPending ? 0.45 : 1,
-                    }}
-                  >
-                    {isThisPending ? (
-                      <ActivityIndicator color={COLORS.essence} />
-                    ) : (
-                      <>
-                        <View className="flex-row items-baseline gap-1">
-                          <Text
-                            className="font-display-bold text-2xl"
-                            style={{ color: affordable ? COLORS.xp : COLORS.textMuted }}
-                          >
-                            +{quote.levels}
-                          </Text>
-                          <Text className="font-sans-bold text-[10px] uppercase tracking-wide text-text-muted">
-                            Lvl
-                          </Text>
-                        </View>
-                        {quote.reachable ? (
-                          <View className="flex-row items-center gap-1">
-                            <Icon
-                              family="ionicons"
-                              name="flash"
-                              size={11}
-                              color={affordable ? COLORS.essence : COLORS.textSubtle}
-                            />
-                            <Text
-                              className="font-sans-bold text-xs"
-                              style={{ color: affordable ? COLORS.essence : COLORS.textSubtle }}
-                            >
-                              {quote.essenceCost}
-                            </Text>
-                          </View>
-                        ) : (
-                          <Text className="font-sans-bold text-[10px] uppercase tracking-wide text-text-subtle">
-                            Max Level
-                          </Text>
-                        )}
-                      </>
-                    )}
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            {essenceBalance <= 0 && (
-              <Text className="font-sans text-xs text-text-subtle">
-                Claim essence from Home to power up a surge.
+            {isLocked ? (
+              <Text className="font-sans text-sm text-text-muted">
+                Listed on the marketplace — cancel the listing to feed {name} essence.
               </Text>
+            ) : (
+              <>
+                <View className="flex-row flex-wrap gap-2.5">
+                  {levelUpQuotes.map((quote) => {
+                    const affordable = quote.reachable && quote.essenceCost <= essenceBalance;
+                    const isThisPending = pendingLevelStep === quote.levels && spendEssenceForXp.isPending;
+                    const disabled = !affordable || spendEssenceForXp.isPending;
+
+                    return (
+                      <Pressable
+                        key={quote.levels}
+                        onPress={() => onFeedXp(quote.levels, quote.essenceCost)}
+                        disabled={disabled}
+                        accessibilityRole="button"
+                        accessibilityLabel={
+                          quote.reachable
+                            ? `Spend ${quote.essenceCost} essence for ${quote.levels} level${quote.levels > 1 ? "s" : ""}`
+                            : `${name} is at the level cap`
+                        }
+                        accessibilityState={{ disabled }}
+                        className="items-center gap-1.5 rounded-xl border py-3"
+                        style={{
+                          width: "48%",
+                          borderColor: affordable ? `${COLORS.essence}55` : COLORS.border,
+                          backgroundColor: affordable ? `${COLORS.essence}14` : COLORS.surface,
+                          opacity: disabled && !isThisPending ? 0.45 : 1,
+                        }}
+                      >
+                        {isThisPending ? (
+                          <ActivityIndicator color={COLORS.essence} />
+                        ) : (
+                          <>
+                            <View className="flex-row items-baseline gap-1">
+                              <Text
+                                className="font-display-bold text-2xl"
+                                style={{ color: affordable ? COLORS.xp : COLORS.textMuted }}
+                              >
+                                +{quote.levels}
+                              </Text>
+                              <Text className="font-sans-bold text-[10px] uppercase tracking-wide text-text-muted">
+                                Lvl
+                              </Text>
+                            </View>
+                            {quote.reachable ? (
+                              <View className="flex-row items-center gap-1">
+                                <Icon
+                                  family="ionicons"
+                                  name="flash"
+                                  size={11}
+                                  color={affordable ? COLORS.essence : COLORS.textSubtle}
+                                />
+                                <Text
+                                  className="font-sans-bold text-xs"
+                                  style={{ color: affordable ? COLORS.essence : COLORS.textSubtle }}
+                                >
+                                  {quote.essenceCost}
+                                </Text>
+                              </View>
+                            ) : (
+                              <Text className="font-sans-bold text-[10px] uppercase tracking-wide text-text-subtle">
+                                Max Level
+                              </Text>
+                            )}
+                          </>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {essenceBalance <= 0 && (
+                  <Text className="font-sans text-xs text-text-subtle">
+                    Claim essence from Home to power up a surge.
+                  </Text>
+                )}
+              </>
             )}
             {feedError && <Text className="font-sans-medium text-sm text-danger">{feedError}</Text>}
+          </View>
+        )}
+
+        {isOwner && !isLocked && eligibleSacrificeCount > 0 && (
+          <View
+            className="gap-3 rounded-2xl border p-4"
+            style={{ borderColor: `${COLORS.danger}40`, backgroundColor: `${COLORS.danger}0f` }}
+          >
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center gap-1.5">
+                <Icon family="ionicons" name="flame" size={16} color={COLORS.danger} />
+                <Text className="font-display text-sm uppercase tracking-wide" style={{ color: COLORS.danger }}>
+                  Sacrifice
+                </Text>
+              </View>
+              <Text className="font-sans-semibold text-xs text-text-muted">
+                {eligibleSacrificeCount} eligible
+              </Text>
+            </View>
+            <Text className="font-sans text-xs text-text-subtle">
+              Feed any other Wobblin you own to {name} for XP — the fed Wobblin is consumed permanently. Higher-stage
+              Wobblins are worth more.
+            </Text>
+            <Button
+              label="Feed Wobblins"
+              variant="secondary"
+              onPress={() => router.push({ pathname: "/wobblin/sacrifice", params: { targetId: wobblin.id } })}
+            />
           </View>
         )}
 

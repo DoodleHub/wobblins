@@ -33,18 +33,26 @@ export function WobblinGridCard({
   const rarityColor = RARITY_COLORS[rarity];
   const art = SPECIES_ART[wobblin.species.name];
   const hasPendingEggs = pendingEggCount > 0;
+  const locked = wobblin.locked_reason != null;
 
   return (
     <Pressable
       onPress={onPress ?? (() => router.push(`/wobblin/${wobblin.id}`))}
       accessibilityRole={selected === undefined ? "button" : "checkbox"}
-      accessibilityLabel={hasPendingEggs ? `${name}, ${pendingEggCount} egg${pendingEggCount > 1 ? "s" : ""} waiting to be claimed` : name}
+      accessibilityLabel={[
+        name,
+        hasPendingEggs ? `${pendingEggCount} egg${pendingEggCount > 1 ? "s" : ""} waiting to be claimed` : null,
+        locked ? "listed on the marketplace" : null,
+      ]
+        .filter(Boolean)
+        .join(", ")}
       accessibilityState={selected === undefined ? undefined : { checked: selected }}
       className="gap-1 overflow-hidden rounded-2xl border p-2"
       style={{
         width,
         borderColor: selected ? COLORS.primary : hasPendingEggs ? `${COLORS.gold}88` : `${rarityColor}55`,
         backgroundColor: selected ? COLORS.primaryLight : hasPendingEggs ? `${COLORS.gold}14` : `${rarityColor}14`,
+        opacity: locked ? 0.55 : 1,
       }}
     >
       <View className="aspect-square items-center justify-end">
@@ -93,6 +101,14 @@ export function WobblinGridCard({
                 {pendingEggCount}
               </Text>
             )}
+          </View>
+        )}
+        {locked && (
+          <View
+            className="absolute bottom-0 right-0 h-6 w-6 items-center justify-center rounded-full"
+            style={{ backgroundColor: `${COLORS.background}cc` }}
+          >
+            <Icon family="ionicons" name="lock-closed" size={11} color={COLORS.warning} />
           </View>
         )}
       </View>
