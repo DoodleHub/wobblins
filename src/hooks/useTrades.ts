@@ -6,6 +6,7 @@ import {
   cancelWobblinOffer,
   getMarketplaceListings,
   getMyListings,
+  getMyOffers,
   getOffersForListing,
   listWobblinForOffers,
   listWobblinForSale,
@@ -105,8 +106,18 @@ export function useProposeWobblinOffer(playerId: string | undefined) {
       proposeWobblinOffer(listingId, offeredWobblinIds),
     onSuccess: (_result, { listingId }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.offersForListing(listingId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.myOffers(playerId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.playerWobblins(playerId) });
     },
+  });
+}
+
+/** The caller's own outgoing offers (any status) across any seller's listing, for the "My Offers" screen. */
+export function useMyOffers(playerId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.myOffers(playerId),
+    queryFn: () => getMyOffers(playerId!),
+    enabled: !!playerId,
   });
 }
 
@@ -127,13 +138,13 @@ export function useRespondToWobblinOffer(playerId: string | undefined, listingId
   });
 }
 
-export function useCancelWobblinOffer(listingId: string | undefined) {
+export function useCancelWobblinOffer(playerId: string | undefined) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (offerId: string) => cancelWobblinOffer(offerId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.offersForListing(listingId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.myOffers(playerId) });
     },
   });
 }

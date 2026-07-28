@@ -115,6 +115,7 @@ export type Database = {
           egg_hatch_xp_required: number
           id: boolean
           passive_accrual_cap_hours: number
+          summon_cost_essence: number
           xp_per_essence: number
         }
         Insert: {
@@ -122,6 +123,7 @@ export type Database = {
           egg_hatch_xp_required?: number
           id?: boolean
           passive_accrual_cap_hours?: number
+          summon_cost_essence?: number
           xp_per_essence?: number
         }
         Update: {
@@ -129,6 +131,7 @@ export type Database = {
           egg_hatch_xp_required?: number
           id?: boolean
           passive_accrual_cap_hours?: number
+          summon_cost_essence?: number
           xp_per_essence?: number
         }
         Relationships: []
@@ -417,7 +420,7 @@ export type Database = {
           total_essence_earned: number
           total_evolutions_count: number
           total_marketplace_sales_count: number
-          total_shop_purchases_count: number
+          total_summons_count: number
           total_trades_completed_count: number
           username: string
         }
@@ -434,7 +437,7 @@ export type Database = {
           total_essence_earned?: number
           total_evolutions_count?: number
           total_marketplace_sales_count?: number
-          total_shop_purchases_count?: number
+          total_summons_count?: number
           total_trades_completed_count?: number
           username: string
         }
@@ -451,7 +454,7 @@ export type Database = {
           total_essence_earned?: number
           total_evolutions_count?: number
           total_marketplace_sales_count?: number
-          total_shop_purchases_count?: number
+          total_summons_count?: number
           total_trades_completed_count?: number
           username?: string
         }
@@ -464,95 +467,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      shop_listings: {
-        Row: {
-          id: string
-          price_essence: number
-          purchased_at: string | null
-          purchased_by: string | null
-          rotation_id: string
-          species_id: string
-        }
-        Insert: {
-          id?: string
-          price_essence: number
-          purchased_at?: string | null
-          purchased_by?: string | null
-          rotation_id: string
-          species_id: string
-        }
-        Update: {
-          id?: string
-          price_essence?: number
-          purchased_at?: string | null
-          purchased_by?: string | null
-          rotation_id?: string
-          species_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "shop_listings_purchased_by_fkey"
-            columns: ["purchased_by"]
-            isOneToOne: false
-            referencedRelation: "player_public_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "shop_listings_purchased_by_fkey"
-            columns: ["purchased_by"]
-            isOneToOne: false
-            referencedRelation: "players"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "shop_listings_rotation_id_fkey"
-            columns: ["rotation_id"]
-            isOneToOne: false
-            referencedRelation: "shop_rotations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "shop_listings_species_id_fkey"
-            columns: ["species_id"]
-            isOneToOne: false
-            referencedRelation: "wobblin_species"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      shop_price_by_rarity: {
-        Row: {
-          price_essence: number
-          rarity: string
-        }
-        Insert: {
-          price_essence: number
-          rarity: string
-        }
-        Update: {
-          price_essence?: number
-          rarity?: string
-        }
-        Relationships: []
-      }
-      shop_rotations: {
-        Row: {
-          created_at: string
-          id: string
-          week_start: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          week_start: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          week_start?: string
-        }
-        Relationships: []
       }
       wobblin_level_xp_requirements: {
         Row: {
@@ -712,7 +626,6 @@ export type Database = {
           unlocked: boolean
         }[]
       }
-      get_weekly_shop: { Args: never; Returns: Json }
       hatch_egg: {
         Args: { p_egg_id: string }
         Returns: {
@@ -745,7 +658,6 @@ export type Database = {
         Args: { p_listing_id: string; p_offered_wobblin_ids: string[] }
         Returns: Json
       }
-      purchase_shop_listing: { Args: { p_listing_id: string }; Returns: Json }
       respond_to_wobblin_offer: {
         Args: { p_accept: boolean; p_offer_id: string }
         Returns: Json
@@ -754,6 +666,7 @@ export type Database = {
         Args: { p_essence_amount: number; p_player_wobblin_id: string }
         Returns: Json
       }
+      summon_wobblin: { Args: never; Returns: Json }
     }
     Enums: {
       [_ in never]: never

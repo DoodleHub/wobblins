@@ -9,7 +9,7 @@ export type AchievementMetric =
   | "eggs_hatched_count"
   | "trades_completed_count"
   | "marketplace_sales_count"
-  | "shop_purchases_count"
+  | "summons_count"
   | "essence_earned_lifetime";
 
 export type AchievementTier = "bronze" | "silver" | "gold";
@@ -27,7 +27,7 @@ export const ACHIEVEMENT_METRIC_ICON: Record<AchievementMetric, IconSpec> = {
   eggs_hatched_count: { family: "material-community", name: "egg" },
   trades_completed_count: { family: "ionicons", name: "swap-horizontal" },
   marketplace_sales_count: { family: "ionicons", name: "storefront" },
-  shop_purchases_count: { family: "ionicons", name: "bag-handle" },
+  summons_count: { family: "ionicons", name: "sparkles" },
   essence_earned_lifetime: { family: "ionicons", name: "flash" },
 };
 

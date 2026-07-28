@@ -10,9 +10,9 @@ export const queryKeys = {
   essenceConfig: () => ["essenceConfig"] as const,
   essenceRequirements: () => ["essenceRequirements"] as const,
   essenceGenerationRates: () => ["essenceGenerationRates"] as const,
-  weeklyShop: () => ["weeklyShop"] as const,
   marketplaceListings: () => ["marketplaceListings"] as const,
   myListings: (playerId: string | undefined) => ["myListings", playerId] as const,
   offersForListing: (listingId: string | undefined) => ["offersForListing", listingId] as const,
+  myOffers: (playerId: string | undefined) => ["myOffers", playerId] as const,
   achievements: (playerId: string | undefined) => ["achievements", playerId] as const,
 };

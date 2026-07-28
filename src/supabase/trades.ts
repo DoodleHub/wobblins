@@ -104,6 +104,28 @@ export async function getOffersForListing(listingId: string): Promise<Marketplac
   return data as unknown as MarketplaceOffer[];
 }
 
+export type MyOffer = Tables<"marketplace_offers"> & {
+  listing: Tables<"marketplace_listings"> & {
+    wobblin: PlayerWobblin;
+    seller?: PlayerPublicProfile;
+  };
+  offered_wobblins: { player_wobblin: PlayerWobblin }[];
+};
+
+/** Every offer the caller has made (any status) across any seller's listing, for the buyer's own "My Offers" screen. */
+export async function getMyOffers(playerId: string): Promise<MyOffer[]> {
+  const { data, error } = await supabase
+    .from("marketplace_offers")
+    .select(
+      "*, listing:marketplace_listings(*, wobblin:player_wobblins(*, species:wobblin_species(*)), seller:player_public_profiles!marketplace_listings_seller_id_fkey(*)), offered_wobblins:marketplace_offer_wobblins(player_wobblin:player_wobblins(*, species:wobblin_species(*)))",
+    )
+    .eq("buyer_id", playerId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data as unknown as MyOffer[];
+}
+
 export type ProposeWobblinOfferResult = {
   offer: Tables<"marketplace_offers">;
   offered_wobblin_ids: string[];

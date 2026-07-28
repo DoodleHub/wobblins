@@ -5,8 +5,10 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/EmptyState";
 import { Icon } from "@/components/Icon";
+import { MonsterHero } from "@/components/MonsterHero";
 import { WobblinPreviewRow } from "@/components/WobblinPreviewRow";
-import { COLORS } from "@/constants/theme";
+import { SPECIES_ART } from "@/constants/speciesArt";
+import { COLORS, type Element, type Rarity } from "@/constants/theme";
 import { useScrollScreenContentStyle } from "@/hooks/useTabBarClearance";
 import { useMyListings, useOffersForListing, useRespondToWobblinOffer } from "@/hooks/useTrades";
 import { useSupabase } from "@/supabase/SupabaseProvider";
@@ -87,7 +89,17 @@ export default function ListingOffersScreen() {
         <Text className="font-display-bold text-3xl text-text">Offers</Text>
       </View>
 
-      {listing && <WobblinPreviewRow wobblin={listing.wobblin} />}
+      {listing && (
+        <MonsterHero
+          name={listing.wobblin.nickname ?? listing.wobblin.species.name}
+          speciesName={listing.wobblin.species.name}
+          nicknamed={listing.wobblin.nickname != null}
+          level={listing.wobblin.level}
+          element={listing.wobblin.species.element.toLowerCase() as Element}
+          rarity={listing.wobblin.species.rarity.toLowerCase() as Rarity}
+          art={SPECIES_ART[listing.wobblin.species.name]}
+        />
+      )}
 
       {notice && (
         <View className="mt-4 rounded-xl border border-border bg-surface p-3">

@@ -139,7 +139,7 @@ export default function CollectionScreen() {
           description={
             wobblins && wobblins.length > 0
               ? "Try a different filter."
-              : "Hatch eggs, visit the Shop, or trade with other players to grow your collection."
+              : "Hatch eggs, summon a new one, or trade with other players to grow your collection."
           }
         />
       }

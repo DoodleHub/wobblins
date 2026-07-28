@@ -8,6 +8,7 @@ import {
   getWobblinLevelXpRequirements,
   spendEssenceForXp,
 } from "@/supabase/essence";
+import type { Player } from "@/supabase/players";
 
 import { queryKeys } from "./queryKeys";
 
@@ -40,8 +41,21 @@ export function useClaimDailyEssence(playerId: string | undefined) {
 
   return useMutation({
     mutationFn: claimDailyEssence,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.player(playerId) });
+    // Home's focus effect (see (tabs)/index.tsx) already refetches the player
+    // query on every focus. If that fetch is still in flight when this claim
+    // resolves, invalidateQueries would just dedupe onto the same (pre-claim)
+    // promise instead of firing a fresh request, leaving the button stuck on
+    // "Daily". Write the RPC's own result straight into the cache instead.
+    onSuccess: (result) => {
+      queryClient.setQueryData(queryKeys.player(playerId), (old: Player | null | undefined) =>
+        old
+          ? {
+              ...old,
+              essence_balance: result.new_balance,
+              last_daily_essence_claim_date: result.claim_date,
+            }
+          : old,
+      );
     },
   });
 }

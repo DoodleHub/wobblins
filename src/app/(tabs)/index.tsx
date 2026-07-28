@@ -100,7 +100,7 @@ export default function HomeScreen() {
                 })
               }
               claimingDaily={claimDailyEssence.isPending}
-              onOpenShop={() => router.push("/shop")}
+              onOpenSummon={() => router.push("/summon")}
             />
             <FeaturedWobblinCard featured={featured ?? null} onLevelUp={setLevelUp} />
             {error && (
@@ -119,12 +119,12 @@ function PlayerHeader({
   player,
   onClaimDaily,
   claimingDaily,
-  onOpenShop,
+  onOpenSummon,
 }: {
   player: Player;
   onClaimDaily: () => void;
   claimingDaily: boolean;
-  onOpenShop: () => void;
+  onOpenSummon: () => void;
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const claimedToday = player.last_daily_essence_claim_date === today;
@@ -184,13 +184,13 @@ function PlayerHeader({
           </Text>
         </Pressable>
         <Pressable
-          onPress={onOpenShop}
+          onPress={onOpenSummon}
           accessibilityRole="button"
-          accessibilityLabel="Open shop"
+          accessibilityLabel="Open summon"
           className="h-10 w-10 items-center justify-center rounded-full border"
           style={{ borderColor: COLORS.border, backgroundColor: COLORS.surface }}
         >
-          <Icon family="ionicons" name="storefront-outline" size={17} color={COLORS.textMuted} />
+          <Icon family="ionicons" name="sparkles-outline" size={17} color={COLORS.textMuted} />
         </Pressable>
       </View>
     </View>

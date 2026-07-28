@@ -1,8 +1,7 @@
 import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
 import { EssenceSlider } from "@/components/EssenceSlider";
@@ -10,11 +9,11 @@ import { EvolutionBanner } from "@/components/EvolutionBanner";
 import { Icon } from "@/components/Icon";
 import { LevelUpBanner } from "@/components/LevelUpBanner";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { MonsterHero } from "@/components/MonsterHero";
 import { RewardToast, type RewardToastData } from "@/components/RewardToast";
-import { TraitBadge } from "@/components/TraitBadge";
 import { XPBar } from "@/components/XPBar";
-import { SPECIES_ART, SPECIES_ART_ASPECT } from "@/constants/speciesArt";
-import { COLORS, ELEMENT_COLORS, ELEMENT_ICON, mixColors, RARITY_COLORS, type Element, type Rarity } from "@/constants/theme";
+import { SPECIES_ART } from "@/constants/speciesArt";
+import { COLORS, ELEMENT_COLORS, type Element, type Rarity } from "@/constants/theme";
 import { useClaimEgg } from "@/hooks/useEggs";
 import { useEssenceConfig, useSpendEssenceForXp } from "@/hooks/useEssence";
 import { usePlayer, useSetActiveWobblin } from "@/hooks/usePlayer";
@@ -23,16 +22,6 @@ import { useSupabase } from "@/supabase/SupabaseProvider";
 import { getErrorMessage } from "@/utils/errors";
 
 const EGG_CADENCE_MS = (hours: number) => hours * 60 * 60 * 1000;
-
-// See the aspect-ratio comment in MonsterHero for why the portrait box isn't
-// just a fixed square. This is the only image on the screen, so both
-// dimensions are free to grow together (preserving aspect ratio) up to this
-// bounding box — whichever dimension the image's aspect ratio hits first
-// determines the final size, the same way a browser sizes a responsive
-// `object-fit: contain` image against a max-width/max-height box.
-const HERO_PORTRAIT_MAX_WIDTH = 300;
-const HERO_PORTRAIT_MAX_HEIGHT = 260;
-const HERO_PORTRAIT_MIN_HEIGHT = 168;
 
 export default function MonsterDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -90,7 +79,6 @@ export default function MonsterDetailScreen() {
   const element = wobblin.species.element.toLowerCase() as Element;
   const rarity = wobblin.species.rarity.toLowerCase() as Rarity;
   const elementColor = ELEMENT_COLORS[element];
-  const rarityColor = RARITY_COLORS[rarity];
   const name = wobblin.nickname ?? wobblin.species.name;
   const art = SPECIES_ART[wobblin.species.name];
   const isFeatured = featured?.id === wobblin.id;
@@ -207,14 +195,20 @@ export default function MonsterDetailScreen() {
           nicknamed={wobblin.nickname != null}
           element={element}
           rarity={rarity}
-          elementColor={elementColor}
-          rarityColor={rarityColor}
           art={art}
           level={wobblin.level}
-          experience={wobblin.experience}
-          onLevelUp={setLevelUp}
           caughtOn={caughtOn}
-        />
+        >
+          <View className="w-full pt-1">
+            <XPBar
+              level={wobblin.level}
+              experience={wobblin.experience}
+              onLevelUp={setLevelUp}
+              showLevel={false}
+              icon={{ family: "ionicons", name: "star" }}
+            />
+          </View>
+        </MonsterHero>
 
         {isOwner && (
           <View
@@ -369,139 +363,6 @@ export default function MonsterDetailScreen() {
           </View>
         )}
       </ScrollView>
-    </View>
-  );
-}
-
-
-function MonsterHero({
-  name,
-  speciesName,
-  nicknamed,
-  element,
-  rarity,
-  elementColor,
-  rarityColor,
-  art,
-  level,
-  experience,
-  onLevelUp,
-  caughtOn,
-}: {
-  name: string;
-  speciesName: string;
-  nicknamed: boolean;
-  element: Element;
-  rarity: Rarity;
-  elementColor: string;
-  rarityColor: string;
-  art?: number;
-  level: number;
-  experience: number;
-  onLevelUp: (level: number) => void;
-  caughtOn: string;
-}) {
-  const heroTint = mixColors(COLORS.surface, elementColor, 0.2);
-
-  // Source portraits aren't all drawn on the same canvas shape (gen-2 art
-  // in particular skews wider than gen-1's near-square crops), so a fixed
-  // box would letterbox wide portraits far more than square ones under
-  // contentFit="contain", making them read as smaller even though every
-  // portrait is cropped equally tight to its subject. This is the only
-  // image on the screen, so instead of pinning height and only letting
-  // width flex (which under-sizes anything below the box's own aspect
-  // ratio), both dimensions grow together — preserving the portrait's
-  // aspect ratio — up to whichever bound (width or height) it hits first,
-  // the same way a browser sizes `object-fit: contain` against a
-  // max-width/max-height box.
-  const aspect = art ? (SPECIES_ART_ASPECT[speciesName] ?? 1) : 1;
-  let portraitWidth = HERO_PORTRAIT_MAX_HEIGHT * aspect;
-  let portraitHeight = HERO_PORTRAIT_MAX_HEIGHT;
-  if (portraitWidth > HERO_PORTRAIT_MAX_WIDTH) {
-    portraitWidth = HERO_PORTRAIT_MAX_WIDTH;
-    portraitHeight = HERO_PORTRAIT_MAX_WIDTH / aspect;
-  }
-  if (portraitHeight < HERO_PORTRAIT_MIN_HEIGHT) {
-    portraitHeight = HERO_PORTRAIT_MIN_HEIGHT;
-    portraitWidth = HERO_PORTRAIT_MIN_HEIGHT * aspect;
-  }
-
-  return (
-    <View
-      className="items-center gap-4 overflow-hidden rounded-3xl border px-6 pb-6 pt-9"
-      style={{ borderColor: `${rarityColor}4d` }}
-    >
-      <LinearGradient
-        colors={[heroTint, COLORS.surface]}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      <View style={{ width: portraitWidth, height: portraitHeight }} className="items-center justify-center">
-        <View
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            width: 168,
-            height: 168,
-            borderRadius: 84,
-            backgroundColor: elementColor,
-            opacity: 0.35,
-            shadowColor: elementColor,
-            shadowOpacity: 0.9,
-            shadowRadius: 44,
-            shadowOffset: { width: 0, height: 0 },
-            elevation: 8,
-          }}
-        />
-        {art ? (
-          <Image source={art} style={{ width: "100%", height: "100%" }} contentFit="contain" />
-        ) : (
-          <View
-            className="items-center justify-center rounded-full border-2 bg-background"
-            style={{ width: 168, height: 168, borderColor: rarityColor }}
-          >
-            <Icon {...ELEMENT_ICON[element]} size={64} color={elementColor} />
-          </View>
-        )}
-      </View>
-
-      <View className="items-center gap-1">
-        <View className="flex-row items-center gap-2">
-          <Text className="text-center font-display-bold text-2xl text-text">{name}</Text>
-          <View className="rounded-full px-2.5 py-1" style={{ backgroundColor: `${COLORS.xp}26` }}>
-            <Text className="font-display-bold text-xs" style={{ color: COLORS.xp }}>
-              Lv. {level}
-            </Text>
-          </View>
-        </View>
-        {nicknamed && (
-          <Text className="font-sans-medium text-sm text-text-muted">{speciesName}</Text>
-        )}
-      </View>
-
-      <View className="flex-row flex-wrap items-center justify-center gap-2">
-        <TraitBadge label={element} color={elementColor} />
-        <TraitBadge label={rarity} color={rarityColor} />
-        <View
-          className="flex-row items-center gap-1 rounded-full border px-2.5 py-1"
-          style={{ borderColor: `${COLORS.textSubtle}33`, backgroundColor: `${COLORS.textSubtle}14` }}
-        >
-          <Icon family="material-community" name="calendar-blank" size={11} color={COLORS.textSubtle} />
-          <Text className="font-sans-semibold text-xs text-text-subtle">{caughtOn}</Text>
-        </View>
-      </View>
-
-      <View className="w-full pt-1">
-        <XPBar
-          level={level}
-          experience={experience}
-          onLevelUp={onLevelUp}
-          showLevel={false}
-          icon={{ family: "ionicons", name: "star" }}
-        />
-      </View>
     </View>
   );
 }

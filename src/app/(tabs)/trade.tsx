@@ -1,20 +1,29 @@
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/EmptyState";
 import { Icon } from "@/components/Icon";
+import { RewardToast, type RewardToastData } from "@/components/RewardToast";
+import { SlideUpModal } from "@/components/SlideUpModal";
 import { TraitBadge } from "@/components/TraitBadge";
 import { SPECIES_ART } from "@/constants/speciesArt";
 import { COLORS, ELEMENT_COLORS, ELEMENT_ICON, RARITY_COLORS, type Element, type Rarity } from "@/constants/theme";
 import { TAB_BAR_HEIGHT, useScrollScreenContentStyle } from "@/hooks/useTabBarClearance";
-import { useBuyListedWobblin, useCancelListing, useMarketplaceListings, useMyListings } from "@/hooks/useTrades";
+import {
+  useBuyListedWobblin,
+  useCancelListing,
+  useCancelWobblinOffer,
+  useMarketplaceListings,
+  useMyListings,
+  useMyOffers,
+} from "@/hooks/useTrades";
 import { usePlayerWobblins } from "@/hooks/useWobblins";
 import { useSupabase } from "@/supabase/SupabaseProvider";
-import type { MarketplaceListing } from "@/supabase/trades";
+import type { MarketplaceListing, MyOffer } from "@/supabase/trades";
 import { getErrorMessage } from "@/utils/errors";
 
 export default function TradeScreen() {
@@ -22,14 +31,30 @@ export default function TradeScreen() {
   const playerId = session?.user.id;
   const router = useRouter();
 
-  const { data: listings, isPending: listingsPending } = useMarketplaceListings();
-  const { data: myListings } = useMyListings(playerId);
+  const { data: listings, isPending: listingsPending, refetch: refetchListings } = useMarketplaceListings();
+  const { data: myListings, refetch: refetchMyListings } = useMyListings(playerId);
   const { data: myWobblins } = usePlayerWobblins(playerId);
+  const { data: myOffers, refetch: refetchMyOffers } = useMyOffers(playerId);
   const buyListedWobblin = useBuyListedWobblin(playerId);
   const cancelListing = useCancelListing(playerId);
+  const cancelOffer = useCancelWobblinOffer(playerId);
 
   const [actionError, setActionError] = useState<string | null>(null);
   const [footerHeight, setFooterHeight] = useState(0);
+  const [toast, setToast] = useState<RewardToastData | null>(null);
+
+  // The Trade tab stays mounted (frozen, not unmounted) while pushed screens
+  // like make-offer/offer-detail sit on top of it, so a cache invalidation
+  // that lands while it's unfocused (e.g. resending an offer) doesn't
+  // reliably repaint once we return here — same quirk Home/Collection work
+  // around with an explicit refetch-on-focus.
+  useFocusEffect(
+    useCallback(() => {
+      refetchListings();
+      refetchMyListings();
+      refetchMyOffers();
+    }, [refetchListings, refetchMyListings, refetchMyOffers]),
+  );
 
   const activeMyListingWobblinIds = new Set(
     (myListings ?? []).filter((l) => l.status === "active").map((l) => l.player_wobblin_id),
@@ -37,23 +62,34 @@ export default function TradeScreen() {
   const sellable = (myWobblins ?? []).filter((w) => !activeMyListingWobblinIds.has(w.id));
   const othersListings = (listings ?? []).filter((l) => l.seller_id !== playerId);
   const myActiveListings = (myListings ?? []).filter((l) => l.status === "active");
+  const myPendingOfferByListingId = new Map(
+    (myOffers ?? []).filter((o) => o.status === "pending").map((o) => [o.listing_id, o]),
+  );
 
   const contentStyle = useScrollScreenContentStyle(24, 1);
 
   return (
     <View className="flex-1 bg-background">
+      <RewardToast reward={toast} offsetTop={8} />
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ ...contentStyle, paddingBottom: contentStyle.paddingBottom + footerHeight }}
       >
+        <View className="mb-4">
+          <Text className="font-display-bold text-3xl text-text">Trade</Text>
+        </View>
+
         <ListingsView
           listings={othersListings}
           listingsPending={listingsPending}
           myActiveListings={myActiveListings}
+          myPendingOfferByListingId={myPendingOfferByListingId}
           buyListedWobblin={buyListedWobblin}
           cancelListing={cancelListing}
+          cancelOffer={cancelOffer}
           actionError={actionError}
           setActionError={setActionError}
+          setToast={setToast}
         />
       </ScrollView>
 
@@ -97,20 +133,30 @@ function ListingsView({
   listings: othersListings,
   listingsPending,
   myActiveListings,
+  myPendingOfferByListingId,
   buyListedWobblin,
   cancelListing,
+  cancelOffer,
   actionError,
   setActionError,
+  setToast,
 }: {
   listings: MarketplaceListing[];
   listingsPending: boolean;
   myActiveListings: MarketplaceListing[];
+  myPendingOfferByListingId: Map<string, MyOffer>;
   buyListedWobblin: ReturnType<typeof useBuyListedWobblin>;
   cancelListing: ReturnType<typeof useCancelListing>;
+  cancelOffer: ReturnType<typeof useCancelWobblinOffer>;
   actionError: string | null;
   setActionError: (error: string | null) => void;
+  setToast: (toast: RewardToastData | null) => void;
 }) {
   const router = useRouter();
+  const [notEnoughEssenceVisible, setNotEnoughEssenceVisible] = useState(false);
+
+  const myOfferListings = othersListings.filter((l) => myPendingOfferByListingId.has(l.id));
+  const browseListings = othersListings.filter((l) => !myPendingOfferByListingId.has(l.id));
 
   return (
     <View className="gap-6">
@@ -125,7 +171,7 @@ function ListingsView({
                 actionLabel="Cancel"
                 actionVariant="secondary"
                 onAction={() => cancelListing.mutate(listing.id)}
-                actionLoading={cancelListing.isPending}
+                actionLoading={cancelListing.isPending && cancelListing.variables === listing.id}
                 secondaryActionLabel={listing.listing_type === "offers" ? "View Offers" : undefined}
                 onSecondaryAction={() =>
                   router.push({ pathname: "/trade/listing-offers", params: { listingId: listing.id } })
@@ -136,11 +182,42 @@ function ListingsView({
         </View>
       )}
 
+      {myOfferListings.length > 0 && (
+        <View className="gap-3">
+          <Text className="font-display text-sm uppercase tracking-wide text-text-muted">My Offers</Text>
+          <View className="flex-row flex-wrap gap-3">
+            {myOfferListings.map((listing) => {
+              const myOffer = myPendingOfferByListingId.get(listing.id)!;
+              return (
+                <ListingCard
+                  key={listing.id}
+                  listing={listing}
+                  actionLabel="Cancel Offer"
+                  actionVariant="secondary"
+                  onAction={() => {
+                    setActionError(null);
+                    cancelOffer.mutate(myOffer.id, {
+                      onError: (err) => setActionError(getErrorMessage(err)),
+                    });
+                  }}
+                  actionLoading={cancelOffer.isPending && cancelOffer.variables === myOffer.id}
+                  badgeOverride={{ label: "Offer Sent", color: COLORS.essence }}
+                  secondaryActionLabel="View Offer"
+                  onSecondaryAction={() =>
+                    router.push({ pathname: "/trade/offer-detail", params: { offerId: myOffer.id } })
+                  }
+                />
+              );
+            })}
+          </View>
+        </View>
+      )}
+
       <View className="gap-3">
         <Text className="font-display text-sm uppercase tracking-wide text-text-muted">Marketplace</Text>
         {listingsPending ? (
           <Text className="font-sans text-sm text-text-subtle">Loading…</Text>
-        ) : othersListings.length === 0 ? (
+        ) : browseListings.length === 0 ? (
           <EmptyState
             icon={{ family: "ionicons", name: "pricetags-outline" }}
             title="No listings yet"
@@ -148,7 +225,7 @@ function ListingsView({
           />
         ) : (
           <View className="flex-row flex-wrap gap-3">
-            {othersListings.map((listing) =>
+            {browseListings.map((listing) =>
               listing.listing_type === "offers" ? (
                 <ListingCard
                   key={listing.id}
@@ -166,10 +243,24 @@ function ListingsView({
                   onAction={() => {
                     setActionError(null);
                     buyListedWobblin.mutate(listing.id, {
-                      onError: (err) => setActionError(getErrorMessage(err)),
+                      onSuccess: () => {
+                        setToast({
+                          icon: { family: "ionicons", name: "pricetag" },
+                          title: `${listing.wobblin.nickname ?? listing.wobblin.species.name} Purchased!`,
+                          subtitle: "Added to your Collection.",
+                        });
+                      },
+                      onError: (err) => {
+                        const message = getErrorMessage(err);
+                        if (message === "Not enough essence") {
+                          setNotEnoughEssenceVisible(true);
+                        } else {
+                          setActionError(message);
+                        }
+                      },
                     });
                   }}
-                  actionLoading={buyListedWobblin.isPending}
+                  actionLoading={buyListedWobblin.isPending && buyListedWobblin.variables === listing.id}
                 />
               ),
             )}
@@ -177,6 +268,13 @@ function ListingsView({
         )}
         {actionError && <Text className="font-sans-medium text-sm text-danger">{actionError}</Text>}
       </View>
+
+      <SlideUpModal
+        visible={notEnoughEssenceVisible}
+        onClose={() => setNotEnoughEssenceVisible(false)}
+        title="Not enough essence"
+        icon={{ family: "ionicons", name: "flash" }}
+      />
     </View>
   );
 }
@@ -190,6 +288,7 @@ function ListingCard({
   actionLoading = false,
   secondaryActionLabel,
   onSecondaryAction,
+  badgeOverride,
 }: {
   listing: MarketplaceListing;
   actionLabel: string;
@@ -198,6 +297,8 @@ function ListingCard({
   actionLoading?: boolean;
   secondaryActionLabel?: string;
   onSecondaryAction?: () => void;
+  /** Overrides the default "Open to Offers" badge on an offers-type listing — e.g. to show "Offer Sent". */
+  badgeOverride?: { label: string; color: string };
 }) {
   const element = listing.wobblin.species.element.toLowerCase() as Element;
   const rarity = listing.wobblin.species.rarity.toLowerCase() as Rarity;
@@ -242,7 +343,7 @@ function ListingCard({
 
       {listing.listing_type === "offers" ? (
         <View className="items-center">
-          <TraitBadge label="Open to Offers" color={COLORS.primary} />
+          <TraitBadge label={badgeOverride?.label ?? "Open to Offers"} color={badgeOverride?.color ?? COLORS.primary} />
         </View>
       ) : (
         <View
@@ -266,13 +367,15 @@ function ListingCard({
           opacity: actionLoading ? 0.6 : 1,
         }}
       >
-        {actionLoading ? (
-          <ActivityIndicator size="small" color={isPrimary ? "#ffffff" : COLORS.primary} />
-        ) : (
-          <Text className="font-sans-bold text-xs" style={{ color: isPrimary ? "#ffffff" : COLORS.text }}>
-            {actionLabel}
-          </Text>
-        )}
+        <View className="items-center justify-center" style={{ height: 16 }}>
+          {actionLoading ? (
+            <ActivityIndicator size="small" color={isPrimary ? "#ffffff" : COLORS.primary} />
+          ) : (
+            <Text className="font-sans-bold text-xs" style={{ color: isPrimary ? "#ffffff" : COLORS.text }}>
+              {actionLabel}
+            </Text>
+          )}
+        </View>
       </Pressable>
 
       {secondaryActionLabel && onSecondaryAction && (

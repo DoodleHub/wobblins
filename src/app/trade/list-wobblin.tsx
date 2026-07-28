@@ -4,9 +4,10 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
 import { Icon, type IconSpec } from "@/components/Icon";
+import { MonsterHero } from "@/components/MonsterHero";
 import { TextField } from "@/components/TextField";
-import { WobblinPreviewRow } from "@/components/WobblinPreviewRow";
-import { COLORS } from "@/constants/theme";
+import { SPECIES_ART } from "@/constants/speciesArt";
+import { COLORS, type Element, type Rarity } from "@/constants/theme";
 import { useScrollScreenContentStyle } from "@/hooks/useTabBarClearance";
 import { useListWobblinForOffers, useListWobblinForSale } from "@/hooks/useTrades";
 import { useWobblin } from "@/hooks/useWobblins";
@@ -62,19 +63,16 @@ export default function ListWobblinScreen() {
 
   return (
     <ScrollView className="flex-1 bg-background" contentContainerStyle={contentStyle}>
-      <View className="mb-4 gap-4">
-        <View className="flex-row items-center">
-          <Pressable
-            onPress={() => router.back()}
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-            className="h-10 w-10 items-center justify-center rounded-full border"
-            style={{ borderColor: COLORS.border, backgroundColor: COLORS.surface }}
-          >
-            <Icon family="ionicons" name="chevron-back" size={20} color={COLORS.text} />
-          </Pressable>
-        </View>
-        <Text className="font-display-bold text-3xl text-text">List for Trade</Text>
+      <View className="mb-2 flex-row items-center">
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          className="h-10 w-10 items-center justify-center rounded-full border"
+          style={{ borderColor: COLORS.border, backgroundColor: COLORS.surface }}
+        >
+          <Icon family="ionicons" name="chevron-back" size={20} color={COLORS.text} />
+        </Pressable>
       </View>
 
       {isPending ? (
@@ -83,7 +81,15 @@ export default function ListWobblinScreen() {
         <Text className="font-sans text-sm text-text-subtle">Wobblin not found.</Text>
       ) : (
         <View className="gap-6">
-          <WobblinPreviewRow wobblin={wobblin} />
+          <MonsterHero
+            name={wobblin.nickname ?? wobblin.species.name}
+            speciesName={wobblin.species.name}
+            nicknamed={wobblin.nickname != null}
+            level={wobblin.level}
+            element={wobblin.species.element.toLowerCase() as Element}
+            rarity={wobblin.species.rarity.toLowerCase() as Rarity}
+            art={SPECIES_ART[wobblin.species.name]}
+          />
 
           <View className="gap-3">
             <ChoiceCard
