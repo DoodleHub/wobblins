@@ -1,22 +1,32 @@
+/* eslint-disable react-hooks/refs -- Animated.Value held in useRef is the standard RN pattern; it's a mutable animation handle, not a component ref, and reading it during render is how Animated interpolation works. */
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
 import { DailyEssenceCard } from "@/components/DailyEssenceCard";
 import { EmptyState } from "@/components/EmptyState";
 import { Icon, type IconSpec } from "@/components/Icon";
 import { LevelUpBanner } from "@/components/LevelUpBanner";
-import { MonsterCard } from "@/components/MonsterCard";
 import { RewardToast, type RewardToastData } from "@/components/RewardToast";
 import { Skeleton } from "@/components/Skeleton";
+import { TraitBadge } from "@/components/TraitBadge";
 import { XPBar } from "@/components/XPBar";
 import { PLAYER_PORTRAIT } from "@/constants/avatars";
 import { SPECIES_ART, SPECIES_ART_ASPECT } from "@/constants/speciesArt";
-import { COLORS, ELEMENT_COLORS, ELEMENT_ICON, type Element, type Rarity } from "@/constants/theme";
+import {
+  COLORS,
+  ELEMENT_COLORS,
+  ELEMENT_ICON,
+  mixColors,
+  RARITY_COLORS,
+  type Element,
+  type Rarity,
+} from "@/constants/theme";
 import { usePlayerAchievements } from "@/hooks/useAchievements";
-import { useMyEggs } from "@/hooks/useEggs";
+import { useGenerateEggsForPlayer, useMyEggs } from "@/hooks/useEggs";
 import { useClaimDailyEssence, useClaimPassiveEssence, useEssenceConfig } from "@/hooks/useEssence";
 import { usePlayer } from "@/hooks/usePlayer";
 import { useScrollScreenContentStyle } from "@/hooks/useTabBarClearance";
@@ -42,6 +52,7 @@ export default function HomeScreen() {
   const { data: featured, refetch: refetchFeatured } = useFeaturedWobblin(playerId);
   const claimDailyEssence = useClaimDailyEssence(playerId);
   const claimPassiveEssence = useClaimPassiveEssence(playerId);
+  const generateEggsForPlayer = useGenerateEggsForPlayer(playerId);
 
   // Data for the "needs your attention" nudges. All of it is already fetched
   // elsewhere in the app (Collection, Profile, Trade) — reusing the same query
@@ -68,8 +79,8 @@ export default function HomeScreen() {
   // so a mutation performed there can invalidate this screen's queries while it's frozen
   // and not repaint until it's focused again — refetch on focus rather than relying on
   // that. Same pattern as Collection. Passive essence is claimed silently here too, on
-  // every focus, the same way `claim_egg`'s cadence is only ever checked when a screen
-  // that cares about it is actually open.
+  // every focus, the same way stage-2 Wobblins silently produce eggs here too, on every
+  // focus — no button, no player action, just a lazy/claim-on-read check.
   useFocusEffect(
     useCallback(() => {
       refetchPlayer();
@@ -90,6 +101,7 @@ export default function HomeScreen() {
           }
         },
       });
+      generateEggsForPlayer.mutate();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
       refetchPlayer,
@@ -100,6 +112,7 @@ export default function HomeScreen() {
       refetchAchievements,
       refetchPendingOffers,
       claimPassiveEssence.mutate,
+      generateEggsForPlayer.mutate,
     ]),
   );
 
@@ -126,6 +139,17 @@ export default function HomeScreen() {
   const unclaimedEggCount = useMemo(
     () => (eggs ?? []).filter((egg) => egg.collected_at == null && !egg.hatched_at).length,
     [eggs],
+  );
+  // Same rule as Collection's pendingEggCountBySource, narrowed to just the
+  // featured Wobblin so the card itself can carry the same gold indicator
+  // WobblinGridCard already shows in the grid, instead of only surfacing via
+  // the nudge list above.
+  const featuredPendingEggCount = useMemo(
+    () =>
+      (eggs ?? []).filter(
+        (egg) => egg.source_wobblin_id === featured?.id && egg.collected_at == null && !egg.hatched_at,
+      ).length,
+    [eggs, featured?.id],
   );
   const unclaimedAchievementCount = useMemo(
     () => (achievements ?? []).filter((a) => a.unlocked && !a.claimed).length,
@@ -175,7 +199,11 @@ export default function HomeScreen() {
               onOpenTrade={() => router.push("/(tabs)/trade")}
             />
 
-            <FeaturedWobblinCard featured={featured ?? null} onLevelUp={setLevelUp} />
+            <FeaturedWobblinCard
+              featured={featured ?? null}
+              pendingEggCount={featuredPendingEggCount}
+              onLevelUp={setLevelUp}
+            />
 
             {error && (
               <View className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3">
@@ -223,16 +251,29 @@ function PlayerHeader({ player }: { player: Player }) {
 
 function FeaturedWobblinCard({
   featured,
+  pendingEggCount = 0,
   onLevelUp,
 }: {
   featured: FeaturedWobblin | null;
+  /** Unclaimed eggs sitting in the featured Wobblin's slots — mirrors WobblinGridCard's prop of the same name, same gold treatment. */
+  pendingEggCount?: number;
   onLevelUp: (level: number) => void;
 }) {
   const router = useRouter();
 
+  const scale = useRef(new Animated.Value(1)).current;
+  const entrance = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(entrance, { toValue: 1, duration: 320, useNativeDriver: true }).start();
+  }, [entrance]);
+  const onPressIn = () =>
+    Animated.spring(scale, { toValue: 0.98, useNativeDriver: true, speed: 40, bounciness: 0 }).start();
+  const onPressOut = () =>
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 6 }).start();
+
   if (!featured) {
     return (
-      <View className="rounded-2xl border border-border bg-surface">
+      <View className="rounded-3xl border border-border bg-surface">
         <EmptyState
           icon={{ family: "material-community", name: "egg-easter" }}
           title="No Wobblin yet"
@@ -246,8 +287,12 @@ function FeaturedWobblinCard({
   const element = featured.species.element.toLowerCase() as Element;
   const rarity = featured.species.rarity.toLowerCase() as Rarity;
   const elementColor = ELEMENT_COLORS[element];
+  const rarityColor = RARITY_COLORS[rarity];
   const name = featured.nickname ?? featured.species.name;
+  const nicknamed = featured.nickname != null;
   const art = SPECIES_ART[featured.species.name];
+  const hasPendingEggs = pendingEggCount > 0;
+  const cardTint = mixColors(COLORS.surface, hasPendingEggs ? COLORS.gold : elementColor, 0.16);
 
   // Source portraits aren't all drawn on the same canvas shape (see the
   // matching comment on the Wobblin detail hero), so a fixed square box
@@ -268,53 +313,133 @@ function FeaturedWobblinCard({
   }
 
   return (
-    <MonsterCard
-      name={name}
-      level={featured.level}
-      element={element}
-      rarity={rarity}
-      eyebrow="Featured Wobblin"
+    <Pressable
       onPress={() => router.push(`/wobblin/${featured.id}`)}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      accessibilityRole="button"
+      accessibilityLabel={
+        hasPendingEggs
+          ? `${name}, featured Wobblin, level ${featured.level}, ${pendingEggCount} egg${pendingEggCount > 1 ? "s" : ""} waiting to be claimed`
+          : `${name}, featured Wobblin, level ${featured.level}`
+      }
     >
-      <View className="items-center py-1">
-        <View style={{ width: portraitWidth, height: portraitHeight }} className="items-center justify-center">
-          <View
-            pointerEvents="none"
-            style={{
-              position: "absolute",
-              width: 118,
-              height: 118,
-              borderRadius: 59,
-              backgroundColor: elementColor,
-              opacity: 0.3,
-              shadowColor: elementColor,
-              shadowOpacity: 0.85,
-              shadowRadius: 32,
-              shadowOffset: { width: 0, height: 0 },
-              elevation: 6,
-            }}
-          />
-          {art ? (
-            <Image source={art} style={{ width: "100%", height: "100%" }} contentFit="contain" />
-          ) : (
-            <View
-              className="h-32 w-32 items-center justify-center rounded-full border-2 bg-background"
-              style={{ borderColor: elementColor }}
-            >
-              <Icon {...ELEMENT_ICON[element]} size={48} color={elementColor} />
-            </View>
-          )}
-        </View>
-      </View>
+      <Animated.View
+        className="overflow-hidden rounded-3xl border"
+        style={{
+          borderColor: hasPendingEggs ? `${COLORS.gold}88` : `${rarityColor}55`,
+          opacity: entrance,
+          transform: [{ translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }, { scale }],
+          shadowColor: hasPendingEggs ? COLORS.gold : elementColor,
+          shadowOpacity: 0.25,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 8 },
+          elevation: 5,
+        }}
+      >
+        <LinearGradient
+          colors={[cardTint, COLORS.surface]}
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.9, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
 
-      <XPBar
-        level={featured.level}
-        experience={featured.experience}
-        onLevelUp={onLevelUp}
-        showLevel={false}
-        icon={{ family: "ionicons", name: "star" }}
-      />
-    </MonsterCard>
+        <View className="gap-4 p-4">
+          <View className="flex-row items-center justify-between">
+            <View
+              className="flex-row items-center gap-1.5 self-start rounded-full px-3 py-1"
+              style={{ backgroundColor: `${COLORS.gold}1f` }}
+            >
+              <Icon family="ionicons" name="star" size={11} color={COLORS.gold} />
+              <Text
+                className="font-display-bold text-[11px] uppercase tracking-wide"
+                style={{ color: COLORS.gold }}
+              >
+                Featured
+              </Text>
+            </View>
+            <Icon family="ionicons" name="chevron-forward" size={18} color={COLORS.textSubtle} />
+          </View>
+
+          <View className="items-center">
+            <View style={{ width: portraitWidth, height: portraitHeight }} className="items-center justify-center">
+              <View
+                pointerEvents="none"
+                style={{
+                  position: "absolute",
+                  width: 130,
+                  height: 130,
+                  borderRadius: 65,
+                  backgroundColor: elementColor,
+                  opacity: 0.3,
+                  shadowColor: elementColor,
+                  shadowOpacity: 0.85,
+                  shadowRadius: 36,
+                  shadowOffset: { width: 0, height: 0 },
+                  elevation: 6,
+                }}
+              />
+              {art ? (
+                <Image source={art} style={{ width: "100%", height: "100%" }} contentFit="contain" />
+              ) : (
+                <View
+                  className="h-32 w-32 items-center justify-center rounded-full border-2 bg-background"
+                  style={{ borderColor: elementColor }}
+                >
+                  <Icon {...ELEMENT_ICON[element]} size={48} color={elementColor} />
+                </View>
+              )}
+
+              <View
+                className="absolute left-0 top-0 rounded-full px-2.5 py-1"
+                style={{ backgroundColor: `${COLORS.background}cc` }}
+              >
+                <Text className="font-sans-bold text-xs text-text">Lv. {featured.level}</Text>
+              </View>
+              <View
+                className="absolute right-0 top-0 h-7 w-7 items-center justify-center rounded-full"
+                style={{ backgroundColor: `${COLORS.background}cc` }}
+              >
+                <Icon {...ELEMENT_ICON[element]} size={14} color={elementColor} />
+              </View>
+              {hasPendingEggs && (
+                <View
+                  className="absolute bottom-0 left-0 flex-row items-center gap-1 rounded-full px-2 py-1"
+                  style={{ backgroundColor: `${COLORS.background}cc` }}
+                >
+                  <Icon family="material-community" name="egg-easter" size={13} color={COLORS.gold} />
+                  {pendingEggCount > 1 && (
+                    <Text className="font-sans-bold text-xs" style={{ color: COLORS.gold }}>
+                      {pendingEggCount}
+                    </Text>
+                  )}
+                </View>
+              )}
+            </View>
+
+            <View className="mt-2 items-center gap-1">
+              <Text className="font-display-bold text-xl text-text">{name}</Text>
+              {nicknamed && (
+                <Text className="font-sans-medium text-sm text-text-muted">{featured.species.name}</Text>
+              )}
+            </View>
+
+            <View className="mt-2 flex-row items-center gap-2">
+              <TraitBadge label={element} color={elementColor} />
+              <TraitBadge label={rarity} color={rarityColor} />
+            </View>
+          </View>
+
+          <XPBar
+            level={featured.level}
+            experience={featured.experience}
+            onLevelUp={onLevelUp}
+            showLevel={false}
+            icon={{ family: "ionicons", name: "flash" }}
+          />
+        </View>
+      </Animated.View>
+    </Pressable>
   );
 }
 

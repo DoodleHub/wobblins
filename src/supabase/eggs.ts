@@ -34,19 +34,24 @@ export async function getEggById(id: string) {
   return data as unknown as Egg | null;
 }
 
-export type GenerateEggResult = { egg: Tables<"eggs">; next_egg_at: string };
+export type GenerateEggsForPlayerResult = {
+  produced: { egg: Tables<"eggs">; source_wobblin_id: string }[];
+  produced_count: number;
+};
 
 /**
- * Produces a new egg into one of a fully-evolved (stage 2) Wobblin's slots
- * via the `generate_egg` RPC. Eligibility (is this Wobblin stage 2, has its
- * cadence elapsed, are both of its slots already holding an unclaimed egg)
- * is re-derived server-side — the client never decides when a slot opens up.
+ * Automatically produces an egg into a slot for every one of the caller's
+ * fully-evolved (stage 2) Wobblins that's both cadence-ready and has an open
+ * slot, via the `generate_eggs_for_player` RPC — no per-Wobblin button, no
+ * args. Eligibility is re-derived server-side per Wobblin; the client never
+ * decides when a slot opens up. Meant to be called silently on focus, same
+ * lazy/claim-on-read pattern as `claimPassiveEssence`.
  */
-export async function generateEgg(playerWobblinId: string): Promise<GenerateEggResult> {
-  const { data, error } = await supabase.rpc("generate_egg", { p_player_wobblin_id: playerWobblinId });
+export async function generateEggsForPlayer(): Promise<GenerateEggsForPlayerResult> {
+  const { data, error } = await supabase.rpc("generate_eggs_for_player");
 
   if (error) throw error;
-  return data as unknown as GenerateEggResult;
+  return data as unknown as GenerateEggsForPlayerResult;
 }
 
 /**

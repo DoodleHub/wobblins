@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { claimEgg, generateEgg, getEggById, getMyEggs, hatchEgg, type Egg } from "@/supabase/eggs";
+import { claimEgg, generateEggsForPlayer, getEggById, getMyEggs, hatchEgg, type Egg } from "@/supabase/eggs";
 
 import { queryKeys } from "./queryKeys";
 
@@ -20,14 +20,21 @@ export function useEgg(id: string | undefined) {
   });
 }
 
-export function useGenerateEgg(playerId: string | undefined) {
+/**
+ * Silently produces eggs for every eligible stage-2 Wobblin the player owns.
+ * Meant to be fired on screen focus (see Home's focus effect), not from a
+ * button — production is automatic now, not a player action.
+ */
+export function useGenerateEggsForPlayer(playerId: string | undefined) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (playerWobblinId: string) => generateEgg(playerWobblinId),
-    onSuccess: (_result, playerWobblinId) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.myEggs(playerId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.wobblin(playerWobblinId) });
+    mutationFn: generateEggsForPlayer,
+    onSuccess: (result) => {
+      if (result.produced_count > 0) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.myEggs(playerId) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.playerWobblins(playerId) });
+      }
     },
   });
 }

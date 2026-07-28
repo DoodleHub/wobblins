@@ -629,7 +629,7 @@ export type Database = {
       }
       claim_passive_essence: { Args: never; Returns: Json }
       evolve_wobblin: { Args: { p_player_wobblin_id: string }; Returns: Json }
-      generate_egg: { Args: { p_player_wobblin_id: string }; Returns: Json }
+      generate_eggs_for_player: { Args: never; Returns: Json }
       get_player_achievements: {
         Args: never
         Returns: {

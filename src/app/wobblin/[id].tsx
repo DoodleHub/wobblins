@@ -13,7 +13,7 @@ import { RewardToast, type RewardToastData } from "@/components/RewardToast";
 import { XPBar } from "@/components/XPBar";
 import { ELEMENT_EGG_ART, SPECIES_ART } from "@/constants/speciesArt";
 import { COLORS, ELEMENT_COLORS, type Element, type Rarity } from "@/constants/theme";
-import { useClaimEgg, useGenerateEgg, useMyEggs } from "@/hooks/useEggs";
+import { useClaimEgg, useMyEggs } from "@/hooks/useEggs";
 import { useEssenceConfig, useSpendEssenceForXp, useWobblinLevelXpRequirements } from "@/hooks/useEssence";
 import { usePlayer, useSetActiveWobblin } from "@/hooks/usePlayer";
 import { useAllSpecies, useEvolveWobblin, useFeaturedWobblin, useWobblin } from "@/hooks/useWobblins";
@@ -37,7 +37,6 @@ export default function MonsterDetailScreen() {
   const { data: player, refetch: refetchPlayer } = usePlayer(playerId);
   const setActiveWobblin = useSetActiveWobblin(playerId);
   const evolveWobblin = useEvolveWobblin(playerId);
-  const generateEgg = useGenerateEgg(playerId);
   const claimEgg = useClaimEgg(playerId);
   const { data: eggs, refetch: refetchEggs } = useMyEggs(playerId);
   const spendEssenceForXp = useSpendEssenceForXp(playerId);
@@ -121,7 +120,6 @@ export default function MonsterDetailScreen() {
     (egg) => egg.source_wobblin_id === wobblin.id && egg.collected_at == null && egg.hatched_at == null,
   );
   const slotsFull = pendingEggs.length >= maxEggSlots;
-  const eggReady = isFinalStage && now >= nextEggAt && !slotsFull;
 
   const essenceBalance = player?.essence_balance ?? 0;
   const levelUpQuotes = LEVEL_UP_STEPS.map((levels) =>
@@ -149,20 +147,6 @@ export default function MonsterDetailScreen() {
         onSettled: () => setPendingLevelStep(null),
       },
     );
-  };
-
-  const onGenerateEgg = () => {
-    setEggError(null);
-    generateEgg.mutate(wobblin.id, {
-      onSuccess: () => {
-        setToast({
-          icon: { family: "material-community", name: "egg-easter" },
-          title: "Egg Produced!",
-          subtitle: "Claim it below to start its hatch countdown.",
-        });
-      },
-      onError: (err) => setEggError(getErrorMessage(err)),
-    });
   };
 
   const onClaimPendingEgg = (eggId: string) => {
@@ -434,8 +418,8 @@ export default function MonsterDetailScreen() {
               </Text>
             </View>
             <Text className="font-sans text-xs text-text-subtle">
-              Fully evolved Wobblins periodically produce an egg for the base species of their chain. Claim an egg to
-              start its day-long hatch countdown in your Collection.
+              Fully evolved Wobblins automatically produce an egg for the base species of their chain over time.
+              Claim an egg to start its day-long hatch countdown in your Collection.
             </Text>
 
             <View className="flex-row gap-3">
@@ -457,11 +441,13 @@ export default function MonsterDetailScreen() {
               <Text className="font-sans-medium text-sm text-text-muted">
                 Egg slots are full — claim an egg above to make room for the next one.
               </Text>
-            ) : eggReady ? (
-              <Button label="Produce Egg" onPress={onGenerateEgg} loading={generateEgg.isPending} />
+            ) : now >= nextEggAt ? (
+              <Text className="font-sans-medium text-sm text-text-muted">
+                Next egg auto-produces the next time you open the app.
+              </Text>
             ) : (
               <Text className="font-sans-medium text-sm text-text-muted">
-                Next egg ready {new Date(nextEggAt).toLocaleString(undefined, {
+                Next egg auto-produces {new Date(nextEggAt).toLocaleString(undefined, {
                   month: "short",
                   day: "numeric",
                   hour: "numeric",
